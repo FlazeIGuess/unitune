@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- UniTune Design System Colors -->
+    <!-- Background Deep: #0D1117 (from AppTheme.colors.backgroundDeep) -->
+    <color name="splash_background">#0D1117</color>
+	<color name="ic_launcher_background">#FFFFFF</color>
+</resources>

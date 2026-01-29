@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flutter (Clean Logs)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "args": [
+        "--dart-define=FLUTTER_LOG_LEVEL=error"
+      ]
+    },
+    {
+      "name": "Flutter (Profile)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "Flutter (Release)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release"
+    }
+  ]
+}

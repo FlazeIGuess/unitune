@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- UniTune Splash Screen - Modern Dark Mode Design -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Background color from design system: backgroundDeep -->
+    <item android:drawable="@color/splash_background" />
+</layer-list>

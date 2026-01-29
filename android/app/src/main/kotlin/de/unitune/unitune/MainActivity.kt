@@ -1,0 +1,5 @@
+package de.unitune.unitune
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()

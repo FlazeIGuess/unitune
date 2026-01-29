@@ -1,0 +1,81 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Internet permission for API calls -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    
+    <application
+        android:label="UniTune"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            
+            <!-- Main launcher -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            
+            <!-- SHARE INTENT: Receive text shares (music links) -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="text/plain"/>
+            </intent-filter>
+            
+            <!-- DEEP LINK: Handle unitune links -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="unitune.art"/>
+            </intent-filter>
+            
+            <!-- Custom URL scheme for app-to-app communication -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="unitune"/>
+            </intent-filter>
+        </activity>
+        
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+    
+    <!-- Query for package visibility (check installed apps) -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Music apps -->
+        <package android:name="com.spotify.music"/>
+        <package android:name="com.apple.android.music"/>
+        <package android:name="com.aspiro.tidal"/>
+        <package android:name="com.google.android.apps.youtube.music"/>
+        <package android:name="deezer.android.app"/>
+        <package android:name="com.amazon.mp3"/>
+        <!-- Messengers -->
+        <package android:name="com.whatsapp"/>
+        <package android:name="org.telegram.messenger"/>
+        <package android:name="org.thoughtcrime.securesms"/>
+        <!-- URL launching -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+    </queries>
+</manifest>
