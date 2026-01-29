@@ -28,7 +28,7 @@ dependencies:
   url_launcher: ^6.3.1
   
   # App Detection (check installed apps)
-  installed_apps: ^1.5.0
+  installed_apps: ^2.1.0
   
   # Share Intent Handling (receive shares from other apps)
   flutter_sharing_intent: ^2.0.4
