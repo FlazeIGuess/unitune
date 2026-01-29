@@ -47,7 +47,7 @@ dependencies:
   
   # Internationalization
   intl: ^0.20.1
-  flutter_svg: ^2.2.3
+  flutter_svg: ^2.0.0
 
 dev_dependencies:
   flutter_test:
