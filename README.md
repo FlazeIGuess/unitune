@@ -1,173 +1,149 @@
 # UniTune
 
-UniTune is a music link sharing application that enables users to share music links universally across different streaming platforms. Share a song from Spotify, and your friends can open it in Apple Music, TIDAL, YouTube Music, or any other supported platform.
+Universal music link sharing application for Android and iOS. Share songs across different music streaming platforms with a single link.
+
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Flutter](https://img.shields.io/badge/Flutter-3.27.1-02569B?logo=flutter)](https://flutter.dev)
+[![Build Status](https://github.com/FlazeIGuess/unitune/workflows/Build%20Android%20APK/badge.svg)](https://github.com/FlazeIGuess/unitune/actions)
+
+## Overview
+
+UniTune converts music links between different streaming platforms, allowing users to share songs with friends regardless of which music service they use. The app features a modern liquid glass UI design and prioritizes user privacy with local-only data storage.
 
 ## Features
 
-- 🎵 Universal music link conversion
-- 🔗 Deep linking support (Android App Links & iOS Universal Links)
-- 🌐 Web-based share pages
-- 🔒 Security-first design with URL validation and XSS protection
-- 🛡️ GDPR-compliant consent management
-- ⚡ Fast and responsive with Cloudflare Workers backend
+- **Universal Link Conversion**: Convert links between Spotify, Apple Music, YouTube Music, Deezer, TIDAL, and Amazon Music
+- **Direct Sharing**: Share converted links via WhatsApp, Telegram, Signal, SMS, or system share
+- **History Tracking**: View your sharing history with statistics and trends
+- **Dynamic Theming**: App colors adapt to album artwork
+- **Privacy-Focused**: All data stored locally, no tracking or analytics
+- **Modern UI**: Liquid glass design with smooth animations
 
-## Supported Music Services
+## Supported Services
 
+### Music Platforms
 - Spotify
 - Apple Music
-- TIDAL
 - YouTube Music
 - Deezer
+- TIDAL
 - Amazon Music
 
-## Getting Started
+### Messaging Apps
+- WhatsApp
+- Telegram
+- Signal
+- SMS / iMessage
+- System Share
+
+## Installation
+
+### Requirements
+- Android 5.0 (API 21) or higher
+- iOS 12.0 or higher (coming soon)
+
+### Download
+- **GitHub Releases**: [Download APK](https://github.com/FlazeIGuess/unitune/releases)
+- **F-Droid**: Coming soon
+- **Google Play Store**: Coming soon
+- **Apple App Store**: Coming soon
+
+## Development
 
 ### Prerequisites
+- Flutter SDK 3.27.1 or higher
+- Dart SDK 3.10.7 or higher
+- Android Studio / Xcode for platform-specific development
 
-- Flutter SDK (latest stable version)
-- Android Studio with Android SDK
-- Xcode (for iOS development, macOS only)
-- Java Development Kit (JDK) for Android signing
+### Setup
 
-### Installation
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/unitune.git
-   cd unitune
-   ```
-
-2. Install dependencies:
-   ```bash
-   flutter pub get
-   ```
-
-3. Run the app:
-   ```bash
-   flutter run
-   ```
-
-## Environment Variables
-
-### Cloudflare Worker Configuration
-
-The UniTune Cloudflare Worker requires the following environment variables to be configured in `web/cloudflare-worker/wrangler.toml`:
-
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `ADSENSE_PUBLISHER_ID` | Google AdSense publisher ID | `ca-pub-8547021258440704` | Yes |
-| `ODESLI_API_ENDPOINT` | Odesli API endpoint URL | `https://api.song.link/v1-alpha.1/links` | Yes |
-| `WORKER_VERSION` | Worker version for debugging | `2.2.0` | No |
-| `ENVIRONMENT` | Environment name (development/staging/production) | `production` | No |
-
-**Example wrangler.toml configuration:**
-
-```toml
-[vars]
-ADSENSE_PUBLISHER_ID = "ca-pub-8547021258440704"
-ODESLI_API_ENDPOINT = "https://api.song.link/v1-alpha.1/links"
-WORKER_VERSION = "2.2.0"
-ENVIRONMENT = "production"
-```
-
-For detailed environment variable documentation, see [ENVIRONMENT_VARIABLES.md](web/cloudflare-worker/ENVIRONMENT_VARIABLES.md).
-
-## Deployment
-
-### Production Deployment
-
-For comprehensive deployment instructions, including:
-- Environment variable configuration
-- Android release signing setup
-- Deep link verification
-- Testing procedures
-- Rollback procedures
-
-See the [DEPLOYMENT_GUIDE.md](../DEPLOYMENT_GUIDE.md) in the project root.
-
-### Quick Deployment Steps
-
-1. **Configure Environment Variables** (see above)
-2. **Generate Android Release Keystore** (see [KEYSTORE_SETUP_GUIDE.md](../KEYSTORE_SETUP_GUIDE.md))
-3. **Deploy Cloudflare Worker:**
-   ```bash
-   cd web/cloudflare-worker
-   wrangler deploy
-   ```
-4. **Build Release Apps:**
-   ```bash
-   # Android
-   flutter build appbundle --release
-   
-   # iOS
-   flutter build ios --release
-   ```
-
-## Deep Link Configuration
-
-UniTune supports verified deep links for seamless app opening:
-
-### Android App Links
-- Configuration: `web/cloudflare-worker/.well-known/assetlinks.json`
-- Package name: `de.unitune.unitune`
-- Requires SHA256 fingerprint from release keystore
-
-### iOS Universal Links
-- Configuration: `web/cloudflare-worker/.well-known/apple-app-site-association`
-- Bundle identifier: `com.example.unitune`
-- Requires Apple Developer Team ID
-
-### Custom URL Scheme
-- Scheme: `unitune://`
-- Example: `unitune://open?url=https://open.spotify.com/track/example`
-
-## Testing
-
-Run all tests:
 ```bash
-flutter test
+# Clone the repository
+git clone https://github.com/FlazeIGuess/unitune.git
+cd unitune
+
+# Install dependencies
+flutter pub get
+
+# Run the app
+flutter run
 ```
 
-Run integration tests:
+### Build
+
 ```bash
-flutter test integration_test/
+# Build APK
+flutter build apk --release
+
+# Build App Bundle (for Play Store)
+flutter build appbundle --release
+
+# Build iOS (macOS only)
+flutter build ios --release
 ```
 
-Test Cloudflare Worker:
-```bash
-cd web/cloudflare-worker
-npm test
+## Architecture
+
+The app follows a feature-first architecture with Riverpod for state management:
+
+```
+lib/
+├── core/           # Shared utilities, themes, widgets
+├── data/           # Data models and repositories
+└── features/       # Feature modules (home, history, settings, etc.)
 ```
 
-## Security
-
-UniTune implements multiple security layers:
-- ✅ URL validation against whitelisted music service domains
-- ✅ XSS protection with HTML escaping
-- ✅ Rate limiting (60 requests/minute per IP)
-- ✅ Security headers (CSP, HSTS, X-Frame-Options, etc.)
-- ✅ GDPR-compliant consent management
-- ✅ Secure error handling without sensitive data exposure
+### Key Technologies
+- Flutter 3.27.1
+- Riverpod 2.6.1 (State Management)
+- GoRouter 14.8.1 (Navigation & Deep Links)
+- SharedPreferences (Local Storage)
+- FL Chart (Statistics Visualization)
 
 ## Privacy
 
-- GDPR-compliant cookie consent banner
-- Clear privacy descriptions for iOS permissions
-- User-friendly permission rationales for Android
-- Privacy policy: [Link to your privacy policy]
+UniTune is designed with privacy in mind:
+- No user accounts or authentication required
+- All data stored locally on device
+- No analytics or tracking
+- No data collection or sharing
+- Open source and auditable
 
-## Documentation
+## Contributing
 
-- [Deployment Guide](../DEPLOYMENT_GUIDE.md) - Complete deployment instructions
-- [Keystore Setup Guide](../KEYSTORE_SETUP_GUIDE.md) - Android signing setup
-- [Environment Variables](web/cloudflare-worker/ENVIRONMENT_VARIABLES.md) - Configuration reference
-- [Requirements](.kiro/specs/pre-deployment-security-compliance/requirements.md) - Security requirements
-- [Design](.kiro/specs/pre-deployment-security-compliance/design.md) - Technical design
+Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) before submitting pull requests.
+
+### Development Guidelines
+- Follow Flutter/Dart style guidelines
+- Write tests for new features
+- Update documentation as needed
+- Ensure all CI checks pass
+
+## Related Projects
+
+- [unitune-api](https://github.com/FlazeIGuess/unitune-api) - Backend API for link conversion
+- [unitune-worker](https://github.com/FlazeIGuess/unitune-worker) - Cloudflare Worker for web interface
 
 ## License
 
-[Your License Here]
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
+
+See [LICENSE](LICENSE) for details.
+
+### Attribution Requirement
+Any use, modification, or distribution of this software must include proper attribution to the original author and project.
+
+## Acknowledgments
+
+- Music link conversion powered by custom API
+- UI design inspired by modern glassmorphism trends
+- Built with Flutter and Riverpod
 
 ## Support
 
-For issues, questions, or contributions, please [open an issue](https://github.com/yourusername/unitune/issues) on GitHub.
+- **Issues**: [GitHub Issues](https://github.com/FlazeIGuess/unitune/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/FlazeIGuess/unitune/discussions)
+
+---
+
+Made with Flutter
