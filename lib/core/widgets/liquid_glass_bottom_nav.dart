@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
-import '../theme/app_theme.dart';
 import '../theme/dynamic_theme.dart';
 
 /// Item for the bottom navigation bar

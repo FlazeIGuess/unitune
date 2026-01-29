@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
-import '../theme/app_theme.dart';
 
 /// GlassSphere - Animated 3D sphere with glassmorphism effect
 /// Inspired by Calm Sleep App breathing animation

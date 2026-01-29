@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
-import '../theme/app_theme.dart';
 import '../utils/performance_utils.dart';
 
 /// Performance-optimized Liquid Glass wrapper

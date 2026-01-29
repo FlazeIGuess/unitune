@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:palette_generator/palette_generator.dart';
 
@@ -18,7 +17,8 @@ class ColorExtractor {
   static const Color defaultPrimaryDark = Color(0xFF1F6FEB);
 
   // Luminance thresholds for fallback detection
-  static const double _minLuminance = 0.35; // Increased for better visibility on dark theme
+  static const double _minLuminance =
+      0.35; // Increased for better visibility on dark theme
   static const double _maxLuminance = 0.85; // Too light
 
   // Cache for extracted colors (URL -> Color)
@@ -108,42 +108,38 @@ class ColorExtractor {
       return null;
     }
   }
-  
+
   /// Adjust color luminance to ensure it's visible on dark backgrounds
   static Color _adjustColorLuminance(Color color) {
     final luminance = color.computeLuminance();
     final hsl = HSLColor.fromColor(color);
-    
+
     if (luminance < _minLuminance) {
       // Too dark - lighten it significantly to reach at least mid-brightness
       // Target lightness around 0.5 - 0.6
-      debugPrint('ColorExtractor: Color too dark (luminance: $luminance), lightening');
-      return hsl.withLightness((hsl.lightness + 0.3).clamp(0.40, 0.8)).toColor();
+      debugPrint(
+        'ColorExtractor: Color too dark (luminance: $luminance), lightening',
+      );
+      return hsl
+          .withLightness((hsl.lightness + 0.3).clamp(0.40, 0.8))
+          .toColor();
     } else if (luminance > _maxLuminance) {
       // Too light - darken it slightly
-      debugPrint('ColorExtractor: Color too light (luminance: $luminance), darkening');
-      return hsl.withLightness((hsl.lightness - 0.2).clamp(0.15, 0.8)).toColor();
+      debugPrint(
+        'ColorExtractor: Color too light (luminance: $luminance), darkening',
+      );
+      return hsl
+          .withLightness((hsl.lightness - 0.2).clamp(0.15, 0.8))
+          .toColor();
     }
-    
+
     // Also check saturation - if it's too gray, boost saturation
     if (hsl.saturation < 0.15) {
-       debugPrint('ColorExtractor: Color too gray, boosting saturation');
-       return hsl.withSaturation(0.3).toColor();
+      debugPrint('ColorExtractor: Color too gray, boosting saturation');
+      return hsl.withSaturation(0.3).toColor();
     }
-    
+
     return color;
-  }
-
-  /// Check if color is valid (not too dark or too light)
-  static bool _isColorValid(Color color) {
-    final luminance = color.computeLuminance();
-    return luminance >= _minLuminance && luminance <= _maxLuminance;
-  }
-
-  /// Check if color is too muted (low saturation)
-  static bool _isColorTooMuted(Color color) {
-    final hsl = HSLColor.fromColor(color);
-    return hsl.saturation < 0.2;
   }
 
   /// Generate a lighter variant of the color
