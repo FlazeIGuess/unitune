@@ -41,7 +41,7 @@ jobs:
       run: flutter build apk --release
       
     - name: Upload APK artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: unitune-release-apk
         path: build/app/outputs/flutter-apk/app-release.apk
