@@ -4,7 +4,7 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.5.0 <4.0.0'
+  sdk: ^3.10.7
 
 dependencies:
   flutter:
@@ -47,12 +47,12 @@ dependencies:
   
   # Internationalization
   intl: ^0.20.1
-  flutter_svg: ^2.0.0
+  flutter_svg: ^2.2.3
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
   riverpod_generator: ^2.6.5
   build_runner: ^2.5.4
   custom_lint: ^0.7.5
