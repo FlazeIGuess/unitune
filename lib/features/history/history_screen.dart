@@ -325,8 +325,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     final receivedHistory = ref.watch(receivedHistoryProvider);
 
     // Check if there's any history to clear
-    final hasHistory =
-        sharedHistory.maybeWhen(
+    final hasHistory = sharedHistory.maybeWhen(
           data: (entries) => entries.isNotEmpty,
           orElse: () => false,
         ) ||
@@ -448,7 +447,7 @@ class _HistoryTab extends ConsumerWidget {
             ),
             itemCount: entries.length,
             // Consistent spacing between cards (Requirement 10.5)
-            separatorBuilder: (_, _) => SizedBox(height: AppTheme.spacing.s),
+            separatorBuilder: (_, __) => SizedBox(height: AppTheme.spacing.s),
             itemBuilder: (context, index) {
               final entry = entries[index];
               return HistoryCard(
@@ -486,16 +485,16 @@ class _HistoryTab extends ConsumerWidget {
             Text(
               emptyTitle,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppTheme.colors.textSecondary,
-              ),
+                    color: AppTheme.colors.textSecondary,
+                  ),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: AppTheme.spacing.xs),
             Text(
               emptySubtitle,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.colors.textMuted,
-              ),
+                    color: AppTheme.colors.textMuted,
+                  ),
               textAlign: TextAlign.center,
             ),
           ],
