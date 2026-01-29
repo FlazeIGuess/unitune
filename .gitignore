@@ -56,3 +56,7 @@ ios/Runner/Info-Production.plist
 .env
 .env.local
 .env.*.local
+
+# Helper scripts (local only)
+push.ps1
+*.local.ps1
