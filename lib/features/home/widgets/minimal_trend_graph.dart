@@ -31,7 +31,6 @@ class MinimalTrendGraph extends StatefulWidget {
 
 class _MinimalTrendGraphState extends State<MinimalTrendGraph> {
   int? _selectedIndex;
-  bool _isDragging = false;
   bool _isLongPressing = false;
   String? _dataKey;
 
@@ -45,7 +44,6 @@ class _MinimalTrendGraphState extends State<MinimalTrendGraph> {
       _dataKey = newKey;
       setState(() {
         _selectedIndex = null;
-        _isDragging = false;
         _isLongPressing = false;
       });
     }
@@ -57,7 +55,6 @@ class _MinimalTrendGraphState extends State<MinimalTrendGraph> {
     HapticFeedback.mediumImpact();
     setState(() {
       _isLongPressing = true;
-      _isDragging = true;
       _selectedIndex = _getNearestPointIndex(
         details.localPosition.dx,
         size.width,
@@ -90,7 +87,6 @@ class _MinimalTrendGraphState extends State<MinimalTrendGraph> {
 
     setState(() {
       _isLongPressing = false;
-      _isDragging = false;
     });
 
     // Auto-clear after 300ms
