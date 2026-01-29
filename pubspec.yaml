@@ -34,7 +34,7 @@ dependencies:
   flutter_sharing_intent: ^2.0.4
   
   # Google Fonts
-  google_fonts: ^6.2.1
+  google_fonts: ^8.0.0
   
   # Liquid Glass Effect (Apple-style)
   liquid_glass_renderer: ^0.2.0-dev.4
