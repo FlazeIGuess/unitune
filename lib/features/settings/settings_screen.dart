@@ -23,7 +23,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-
   @override
   Widget build(BuildContext context) {
     final selectedMusicService = ref.watch(preferredMusicServiceProvider);
@@ -210,7 +209,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                       Text(
-                        'Version 1.0.0',
+                        'Version 1.1.0',
                         style: AppTheme.typography.bodyMedium.copyWith(
                           color: AppTheme.colors.textSecondary,
                         ),
