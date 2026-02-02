@@ -6,7 +6,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/album_art_with_glow.dart';
 import '../../core/widgets/service_button.dart';
 import '../../core/utils/motion_sensitivity.dart';
-import '../../data/repositories/odesli_repository.dart';
+import '../../core/utils/link_encoder.dart';
+import '../../data/repositories/unitune_repository.dart';
 import '../../main.dart' show ProcessingMode;
 import '../settings/preferences_manager.dart';
 
@@ -28,11 +29,11 @@ class ProcessingScreenV2 extends ConsumerStatefulWidget {
 
 class _ProcessingScreenV2State extends ConsumerState<ProcessingScreenV2>
     with SingleTickerProviderStateMixin {
-  final OdesliRepository _odesliRepo = OdesliRepository();
+  final UnituneRepository _unituneRepo = UnituneRepository();
 
   bool _isLoading = true;
   String _statusMessage = 'Analyzing link...';
-  OdesliResponse? _response;
+  UnituneResponse? _response;
   String? _error;
 
   late AnimationController _fadeController;
@@ -55,7 +56,7 @@ class _ProcessingScreenV2State extends ConsumerState<ProcessingScreenV2>
   @override
   void dispose() {
     _fadeController.dispose();
-    _odesliRepo.dispose();
+    _unituneRepo.dispose();
     super.dispose();
   }
 
@@ -68,14 +69,15 @@ class _ProcessingScreenV2State extends ConsumerState<ProcessingScreenV2>
       if (!mounted) return;
       setState(() => _statusMessage = 'Converting link...');
 
-      final response = await _odesliRepo.getLinks(widget.incomingLink);
+      final response = await _unituneRepo.getLinks(widget.incomingLink);
 
       if (!mounted) return;
 
       if (response == null) {
         // User-friendly error message without exposing API details
         setState(() {
-          _error = 'Unable to process this music link. Please check your internet connection and try again.';
+          _error =
+              'Unable to process this music link. Please check your internet connection and try again.';
           _isLoading = false;
         });
         return;
@@ -187,9 +189,8 @@ class _ProcessingScreenV2State extends ConsumerState<ProcessingScreenV2>
     }
   }
 
-  String _generateShareLink(OdesliResponse response) {
-    final encodedUrl = Uri.encodeComponent(widget.incomingLink);
-    return 'https://unitune.art/s/$encodedUrl';
+  String _generateShareLink(UnituneResponse response) {
+    return UniTuneLinkEncoder.createShareLinkFromUrl(widget.incomingLink);
   }
 
   void _showServiceSheet() {
@@ -275,7 +276,7 @@ class _ProcessingScreenV2State extends ConsumerState<ProcessingScreenV2>
     );
   }
 
-  Widget _buildShareButton(OdesliResponse response) {
+  Widget _buildShareButton(UnituneResponse response) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: SizedBox(
@@ -384,14 +385,11 @@ class _ProcessingScreenV2State extends ConsumerState<ProcessingScreenV2>
 
     // Return with or without fade animation based on reduce-motion setting
     return shouldAnimate
-        ? FadeTransition(
-            opacity: _fadeAnimation,
-            child: content,
-          )
+        ? FadeTransition(opacity: _fadeAnimation, child: content)
         : content;
   }
 
-  Widget _buildServiceList(OdesliResponse response) {
+  Widget _buildServiceList(UnituneResponse response) {
     // Build list of available services
     final services = [
       (
@@ -406,12 +404,7 @@ class _ProcessingScreenV2State extends ConsumerState<ProcessingScreenV2>
         'Apple Music',
         AppTheme.colors.appleMusic,
       ),
-      (
-        MusicService.tidal,
-        Icons.music_note,
-        'TIDAL',
-        AppTheme.colors.tidal,
-      ),
+      (MusicService.tidal, Icons.music_note, 'TIDAL', AppTheme.colors.tidal),
       (
         MusicService.youtubeMusic,
         Icons.play_circle_filled,
@@ -523,7 +516,7 @@ class _ProcessingScreenV2State extends ConsumerState<ProcessingScreenV2>
 
 /// Bottom sheet with service options
 class _ServiceSheet extends StatelessWidget {
-  final OdesliResponse response;
+  final UnituneResponse response;
   final String shareLink;
 
   const _ServiceSheet({required this.response, required this.shareLink});

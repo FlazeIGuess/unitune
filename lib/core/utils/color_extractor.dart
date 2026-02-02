@@ -69,19 +69,13 @@ class ColorExtractor {
       Color? selectedColor = palette.lightVibrantColor?.color;
 
       // Priority 2: Vibrant
-      if (selectedColor == null) {
-        selectedColor = palette.vibrantColor?.color;
-      }
+      selectedColor ??= palette.vibrantColor?.color;
 
       // Priority 3: Light Muted
-      if (selectedColor == null) {
-        selectedColor = palette.lightMutedColor?.color;
-      }
+      selectedColor ??= palette.lightMutedColor?.color;
 
       // Priority 4: Dominant
-      if (selectedColor == null) {
-        selectedColor = palette.dominantColor?.color;
-      }
+      selectedColor ??= palette.dominantColor?.color;
 
       // Final fallback to any color
       if (selectedColor == null && palette.colors.isNotEmpty) {

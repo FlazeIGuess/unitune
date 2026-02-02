@@ -13,6 +13,7 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/dynamic_theme.dart';
 import 'core/theme/dynamic_color_provider.dart';
 import 'core/security/url_validator.dart';
+import 'core/utils/link_encoder.dart';
 import 'features/onboarding/screens/welcome_screen.dart';
 import 'features/onboarding/screens/music_service_selector.dart';
 import 'features/onboarding/screens/messenger_selector.dart';
@@ -70,17 +71,21 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
     _initShareIntent();
     _syncDynamicColorFromHistory();
   }
-  
+
   /// Sync app colors from the topmost shared history entry
   Future<void> _syncDynamicColorFromHistory() async {
     // Small delay to ensure providers are ready
     await Future.delayed(const Duration(milliseconds: 100));
-    
+
     try {
       final historyEntries = await ref.read(sharedHistoryProvider.future);
       if (historyEntries.isNotEmpty) {
-        debugPrint('Syncing dynamic color from ${historyEntries.length} shared entries');
-        await ref.read(dynamicColorProvider.notifier).syncFromHistory(historyEntries);
+        debugPrint(
+          'Syncing dynamic color from ${historyEntries.length} shared entries',
+        );
+        await ref
+            .read(dynamicColorProvider.notifier)
+            .syncFromHistory(historyEntries);
       }
     } catch (e) {
       debugPrint('Error syncing dynamic color: $e');
@@ -137,7 +142,7 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
           debugPrint(
             '=== FAST OPEN: Link from website (source=web), opening directly ===',
           );
-          
+
           // Decode the URL if needed and extract actual music URL
           String urlToOpen = musicUrl;
           try {
@@ -148,7 +153,7 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
           } catch (e) {
             debugPrint('Error extracting URL, using original: $e');
           }
-          
+
           // Basic safety check only (no whitelist check for web source)
           final sanitized = UrlValidator.sanitizeUrl(urlToOpen);
           if (UrlValidator.isSafeUrl(sanitized)) {
@@ -205,10 +210,13 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
 
     // For https:// links (unitune.art/s/...) - also OPENING a shared link
     if (uri.host.contains('unitune') && uri.path.startsWith('/s/')) {
-      // Extract the encoded music URL from the path
-      final encodedUrl = uri.path.replaceFirst('/s/', '');
-      final musicUrl = Uri.decodeComponent(encodedUrl);
-      if (musicUrl.isNotEmpty) {
+      // Extract the encoded path from the URL
+      final encodedPath = uri.path.replaceFirst('/s/', '');
+
+      // Decode using the new encoder (supports both Base64 and legacy formats)
+      final musicUrl = UniTuneLinkEncoder.decodeShareLinkPath(encodedPath);
+
+      if (musicUrl != null && musicUrl.isNotEmpty) {
         debugPrint(
           'OPEN mode: Extracted music URL from unitune.art path: $musicUrl',
         );

@@ -4,7 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/services.dart';
 import '../../core/theme/app_theme.dart';
-import '../../data/repositories/odesli_repository.dart';
+import '../../core/utils/link_encoder.dart';
+import '../../data/repositories/unitune_repository.dart';
 import '../settings/preferences_manager.dart';
 
 /// Handles incoming share intents from other apps (e.g., Spotify -> Share -> UniTune)
@@ -18,7 +19,7 @@ class ShareIntentHandler extends ConsumerStatefulWidget {
 }
 
 class _ShareIntentHandlerState extends ConsumerState<ShareIntentHandler> {
-  final OdesliRepository _odesliRepo = OdesliRepository();
+  final UnituneRepository _unituneRepo = UnituneRepository();
 
   bool _isProcessing = false;
   String? _processingMessage;
@@ -31,7 +32,7 @@ class _ShareIntentHandlerState extends ConsumerState<ShareIntentHandler> {
 
   @override
   void dispose() {
-    _odesliRepo.dispose();
+    _unituneRepo.dispose();
     super.dispose();
   }
 
@@ -45,8 +46,8 @@ class _ShareIntentHandlerState extends ConsumerState<ShareIntentHandler> {
     });
 
     try {
-      // 1. Call Odesli API to get all platform links
-      final response = await _odesliRepo.getLinks(link);
+      // 1. Call UniTune API to get all platform links
+      final response = await _unituneRepo.getLinks(link);
 
       if (response == null) {
         // User-friendly error message without exposing API details
@@ -86,19 +87,21 @@ class _ShareIntentHandlerState extends ConsumerState<ShareIntentHandler> {
     }
   }
 
-  /// Generate a UniTune share link
   /// Generate a UniTune share link from the original music URL
-  /// The Cloudflare Worker will decode this and show the landing page
   String _generateShareLink(String originalMusicUrl) {
-    // Encode the original music URL for the share link
-    final encodedUrl = Uri.encodeComponent(originalMusicUrl);
-    return 'https://unitune.art/s/$encodedUrl';
+    try {
+      return UniTuneLinkEncoder.createShareLinkFromUrl(originalMusicUrl);
+    } catch (e) {
+      // If URL parsing fails, log error and rethrow
+      print('❌ Failed to generate share link: $e');
+      rethrow;
+    }
   }
 
   /// Share via the preferred messenger (the "bridge")
   Future<void> _shareViaMessenger(
     String shareLink,
-    OdesliResponse response,
+    UnituneResponse response,
     MessengerService messenger,
   ) async {
     final songInfo = response.title != null && response.artistName != null
@@ -139,7 +142,7 @@ class _ShareIntentHandlerState extends ConsumerState<ShareIntentHandler> {
   /// Share via system share sheet
   Future<void> _shareViaSystem(
     String shareLink,
-    OdesliResponse response,
+    UnituneResponse response,
   ) async {
     final songInfo = response.title != null && response.artistName != null
         ? '${response.title} by ${response.artistName}'

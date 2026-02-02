@@ -60,3 +60,4 @@ ios/Runner/Info-Production.plist
 # Helper scripts (local only)
 push.ps1
 *.local.ps1
+create-release.ps1

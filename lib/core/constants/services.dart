@@ -116,9 +116,9 @@ class ApiConstants {
   ApiConstants._();
 
   /// UniTune API endpoint - converts music links between platforms
-  /// Note: Uses Odesli-compatible response format for backward compatibility
-  static const String odesliBaseUrl = 'https://api.song.link/v1-alpha.1/links';
+  static const String unituneApiBaseUrl =
+      'https://api.unitune.art/v1-alpha.1/links';
 
-  /// UniTune link base (replace with your actual domain)
+  /// UniTune link base
   static const String unituneLinkBase = 'https://unitune.art';
 }

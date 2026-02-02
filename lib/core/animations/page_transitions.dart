@@ -95,7 +95,7 @@ class LiquidParallaxTransition extends StatelessWidget {
 /// Curve: ease-in-out
 /// Validates: Requirements 7.1, 7.5
 class LiquidPageRoute<T> extends PageRouteBuilder<T> {
-  LiquidPageRoute({required Widget page, RouteSettings? settings})
+  LiquidPageRoute({required Widget page, super.settings})
     : super(
         pageBuilder: (context, animation, secondaryAnimation) => page,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -120,6 +120,5 @@ class LiquidPageRoute<T> extends PageRouteBuilder<T> {
         },
         transitionDuration: const Duration(milliseconds: 350), // 300-400ms
         reverseTransitionDuration: const Duration(milliseconds: 350),
-        settings: settings,
       );
 }

@@ -154,7 +154,7 @@ class DynamicContentExample extends StatefulWidget {
 }
 
 class _DynamicContentExampleState extends State<DynamicContentExample> {
-  List<String> _items = [];
+  final List<String> _items = [];
 
   void _addItem() {
     setState(() {

@@ -3,15 +3,15 @@ import 'dart:developer' as developer;
 import 'package:http/http.dart' as http;
 import '../../core/constants/services.dart';
 
-/// Odesli (Songlink) API response model
-class OdesliResponse {
+/// UniTune API response model
+class UnituneResponse {
   final String? entityUniqueId;
   final String? title;
   final String? artistName;
   final String? thumbnailUrl;
   final Map<String, PlatformLink> linksByPlatform;
 
-  OdesliResponse({
+  UnituneResponse({
     this.entityUniqueId,
     this.title,
     this.artistName,
@@ -19,7 +19,7 @@ class OdesliResponse {
     required this.linksByPlatform,
   });
 
-  factory OdesliResponse.fromJson(Map<String, dynamic> json) {
+  factory UnituneResponse.fromJson(Map<String, dynamic> json) {
     final linksMap = <String, PlatformLink>{};
     final linksByPlatform = json['linksByPlatform'] as Map<String, dynamic>?;
 
@@ -41,7 +41,7 @@ class OdesliResponse {
       thumbnailUrl = firstEntity['thumbnailUrl'] as String?;
     }
 
-    return OdesliResponse(
+    return UnituneResponse(
       entityUniqueId: json['entityUniqueId'] as String?,
       title: title,
       artistName: artistName,
@@ -88,15 +88,15 @@ class PlatformLink {
   }
 }
 
-/// Repository for Odesli API calls
-class OdesliRepository {
-  static const String _baseUrl = 'https://api.song.link/v1-alpha.1/links';
+/// Repository for UniTune API calls
+class UnituneRepository {
+  static const String _baseUrl = 'https://api.unitune.art/v1-alpha.1/links';
   static const int _maxRetries = 3;
   static const Duration _initialDelay = Duration(milliseconds: 500);
 
   final http.Client _client;
 
-  OdesliRepository({http.Client? client}) : _client = client ?? http.Client();
+  UnituneRepository({http.Client? client}) : _client = client ?? http.Client();
 
   /// Convert a music URL to get links for all platforms
   /// Returns null if the API call fails or the URL is not recognized
@@ -105,7 +105,7 @@ class OdesliRepository {
   /// - Attempt 1: immediate
   /// - Attempt 2: 500ms delay
   /// - Attempt 3: 1000ms delay
-  Future<OdesliResponse?> getLinks(String musicUrl) async {
+  Future<UnituneResponse?> getLinks(String musicUrl) async {
     int attempt = 0;
     Duration delay = _initialDelay;
 
@@ -117,69 +117,81 @@ class OdesliRepository {
           _baseUrl,
         ).replace(queryParameters: {'url': musicUrl});
 
+        developer.log(
+          'UniTune API Request',
+          name: 'UnituneRepository',
+          error: 'Attempt $attempt: $uri',
+        );
+
         final response = await _client.get(uri);
+
+        developer.log(
+          'UniTune API Response',
+          name: 'UnituneRepository',
+          error:
+              'Status: ${response.statusCode}, Body length: ${response.body.length}',
+        );
 
         if (response.statusCode == 200) {
           final json = jsonDecode(response.body) as Map<String, dynamic>;
-          return OdesliResponse.fromJson(json);
-        } else if (response.statusCode == 429) {
-          // Rate limited - log locally but don't expose to user
+          return UnituneResponse.fromJson(json);
+        } else if (response.statusCode == 404) {
           developer.log(
-            'Odesli API rate limit exceeded (429)',
-            name: 'OdesliRepository',
+            'UniTune API endpoint not found (404)',
+            name: 'UnituneRepository',
+            error: 'URL: $uri\nResponse: ${response.body}',
+          );
+          return null;
+        } else if (response.statusCode == 429) {
+          developer.log(
+            'UniTune API rate limit exceeded (429)',
+            name: 'UnituneRepository',
             error: 'Status: ${response.statusCode}',
           );
 
-          // If not last attempt, retry with backoff
           if (attempt < _maxRetries) {
             await Future.delayed(delay);
-            delay *= 2; // Exponential backoff
+            delay *= 2;
             continue;
           }
           return null;
         } else if (response.statusCode >= 500) {
-          // Server error - log locally and retry
           developer.log(
-            'Odesli API server error',
-            name: 'OdesliRepository',
+            'UniTune API server error',
+            name: 'UnituneRepository',
             error: 'Status: ${response.statusCode}',
           );
 
-          // If not last attempt, retry with backoff
           if (attempt < _maxRetries) {
             await Future.delayed(delay);
-            delay *= 2; // Exponential backoff
+            delay *= 2;
             continue;
           }
           return null;
         } else {
-          // Client error (4xx) - don't retry, log locally
           developer.log(
-            'Odesli API client error',
-            name: 'OdesliRepository',
-            error: 'Status: ${response.statusCode}',
+            'UniTune API client error',
+            name: 'UnituneRepository',
+            error: 'Status: ${response.statusCode}\nResponse: ${response.body}',
           );
           return null;
         }
       } catch (e) {
-        // Network or parsing error - log locally
         developer.log(
-          'Odesli API request failed',
-          name: 'OdesliRepository',
+          'UniTune API request failed',
+          name: 'UnituneRepository',
           error: e.toString(),
         );
 
-        // If not last attempt, retry with backoff
         if (attempt < _maxRetries) {
           await Future.delayed(delay);
-          delay *= 2; // Exponential backoff
+          delay *= 2;
           continue;
         }
         return null;
       }
     }
 
-    // All retries exhausted
     return null;
   }
 

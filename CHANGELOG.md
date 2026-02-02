@@ -9,21 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Initial release preparation
-- GitHub Actions CI/CD pipeline
-- Automated APK builds
 
-## [1.0.0] - 2025-01-29
+## [1.0.0] - 2026-01-29
 
 ### Added
-- Universal music link sharing
-- Support for Spotify, Apple Music, YouTube Music, Deezer, Tidal, Amazon Music
-- Share via WhatsApp, Telegram, Signal, SMS
-- History tracking with statistics
-- Modern liquid glass UI design
-- Dark mode support
-- Privacy-focused (no tracking, local storage only)
+- Universal music link conversion between 6 platforms:
+  - Spotify
+  - Apple Music
+  - YouTube Music
+  - Deezer
+  - TIDAL
+  - Amazon Music
+- Share via 5 messaging options:
+  - WhatsApp
+  - Telegram
+  - Signal
+  - SMS
+  - System Share
+- Sharing statistics with interactive graphs
+- History tracking with search and filtering
+- Dynamic color theming based on album artwork
+- Liquid glass UI effects
+- Dark theme optimized design
+- Onboarding flow for first-time users
+- Settings for preferred services
+- URL validation and security features
 
-### Security
-- URL validation for all external links
-- Local-only data storage
-- No analytics or tracking
+### Technical
+- Flutter 3.38.6 with Dart 3.10.7
+- Riverpod state management
+- Go Router navigation
+- Local storage with SharedPreferences
+- HTTP networking
+- Deep linking support
+- Share intent handling
+
+[Unreleased]: https://github.com/FlazeIGuess/unitune/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/FlazeIGuess/unitune/releases/tag/v1.0.0

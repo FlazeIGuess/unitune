@@ -10,8 +10,9 @@ import '../../core/widgets/unitune_header.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/history_action_sheet.dart';
 import '../../core/widgets/liquid_glass_dialog.dart';
+import '../../core/utils/link_encoder.dart';
 import '../../data/models/history_entry.dart';
-import '../../data/repositories/odesli_repository.dart';
+import '../../data/repositories/unitune_repository.dart';
 import '../settings/preferences_manager.dart';
 import '../../core/constants/services.dart';
 
@@ -88,10 +89,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         ),
       );
 
-      // Re-convert the link using Odesli API
-      final odesliRepo = OdesliRepository();
-      final response = await odesliRepo.getLinks(entry.originalUrl);
-      odesliRepo.dispose();
+      // Re-convert the link using UniTune API
+      final unituneRepo = UnituneRepository();
+      final response = await unituneRepo.getLinks(entry.originalUrl);
+      unituneRepo.dispose();
 
       if (response == null) {
         if (!mounted) return;
@@ -106,8 +107,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       }
 
       // Generate UniTune share link
-      final encodedUrl = Uri.encodeComponent(entry.originalUrl);
-      final shareLink = 'https://unitune.art/s/$encodedUrl';
+      final shareLink = UniTuneLinkEncoder.createShareLinkFromUrl(
+        entry.originalUrl,
+      );
 
       // Get preferred messenger
       final messenger = ref.read(preferredMessengerProvider);
@@ -187,10 +189,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         ),
       );
 
-      // Get the links from Odesli API
-      final odesliRepo = OdesliRepository();
-      final response = await odesliRepo.getLinks(entry.originalUrl);
-      odesliRepo.dispose();
+      // Get the links from UniTune API
+      final unituneRepo = UnituneRepository();
+      final response = await unituneRepo.getLinks(entry.originalUrl);
+      unituneRepo.dispose();
 
       if (response == null) {
         if (!mounted) return;
@@ -325,7 +327,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     final receivedHistory = ref.watch(receivedHistoryProvider);
 
     // Check if there's any history to clear
-    final hasHistory = sharedHistory.maybeWhen(
+    final hasHistory =
+        sharedHistory.maybeWhen(
           data: (entries) => entries.isNotEmpty,
           orElse: () => false,
         ) ||
@@ -485,16 +488,16 @@ class _HistoryTab extends ConsumerWidget {
             Text(
               emptyTitle,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppTheme.colors.textSecondary,
-                  ),
+                color: AppTheme.colors.textSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: AppTheme.spacing.xs),
             Text(
               emptySubtitle,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.colors.textMuted,
-                  ),
+                color: AppTheme.colors.textMuted,
+              ),
               textAlign: TextAlign.center,
             ),
           ],

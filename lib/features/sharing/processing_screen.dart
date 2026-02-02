@@ -8,8 +8,9 @@ import '../../core/theme/dynamic_theme.dart';
 import '../../core/theme/dynamic_color_provider.dart';
 import '../../core/widgets/liquid_glass_sphere.dart';
 import '../../core/widgets/primary_button.dart';
+import '../../core/utils/link_encoder.dart';
 import '../../data/models/history_entry.dart';
-import '../../data/repositories/odesli_repository.dart';
+import '../../data/repositories/unitune_repository.dart';
 import '../../main.dart' show ProcessingMode;
 import '../settings/preferences_manager.dart';
 
@@ -30,11 +31,11 @@ class ProcessingScreen extends ConsumerStatefulWidget {
 }
 
 class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
-  final OdesliRepository _odesliRepo = OdesliRepository();
+  final UnituneRepository _unituneRepo = UnituneRepository();
 
   bool _isLoading = true;
   String _statusMessage = 'Analyzing link...';
-  OdesliResponse? _response;
+  UnituneResponse? _response;
   String? _error;
 
   @override
@@ -45,7 +46,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
 
   @override
   void dispose() {
-    _odesliRepo.dispose();
+    _unituneRepo.dispose();
     super.dispose();
   }
 
@@ -58,7 +59,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
       if (!mounted) return;
       setState(() => _statusMessage = 'Converting link...');
 
-      final response = await _odesliRepo.getLinks(widget.incomingLink);
+      final response = await _unituneRepo.getLinks(widget.incomingLink);
 
       if (!mounted) return;
 
@@ -265,9 +266,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
       // Extract and update dynamic app colors from album artwork
       // Only update colors when sharing (not receiving)
       if (type == HistoryType.shared && response.thumbnailUrl != null) {
-        debugPrint(
-          '=== DYNAMIC COLOR UPDATE START ===',
-        );
+        debugPrint('=== DYNAMIC COLOR UPDATE START ===');
         debugPrint(
           'Updating app colors from album artwork: ${response.thumbnailUrl}',
         );
@@ -276,7 +275,9 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
             .updateFromArtwork(response.thumbnailUrl);
         debugPrint('=== DYNAMIC COLOR UPDATE COMPLETE ===');
       } else {
-        debugPrint('Skipping color update: type=$type, thumbnailUrl=${response.thumbnailUrl}');
+        debugPrint(
+          'Skipping color update: type=$type, thumbnailUrl=${response.thumbnailUrl}',
+        );
       }
 
       debugPrint('Saved to history: ${entry.title} (${type.name})');
@@ -285,10 +286,8 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     }
   }
 
-  String _generateShareLink(OdesliResponse response) {
-    // Use the original music URL - the worker will query Odesli with this
-    final encodedUrl = Uri.encodeComponent(widget.incomingLink);
-    return 'https://unitune.art/s/$encodedUrl';
+  String _generateShareLink(UnituneResponse response) {
+    return UniTuneLinkEncoder.createShareLinkFromUrl(widget.incomingLink);
   }
 
   void _showShareSheet() {
@@ -489,7 +488,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
 
 /// Bottom sheet with share options for different messengers
 class _ShareOptionsSheet extends StatelessWidget {
-  final OdesliResponse response;
+  final UnituneResponse response;
   final String shareLink;
 
   const _ShareOptionsSheet({required this.response, required this.shareLink});
