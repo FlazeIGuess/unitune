@@ -136,24 +136,66 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
       if (!mounted) return;
       setState(() => _statusMessage = 'Converting link...');
 
+      debugPrint('=== Calling API: ${widget.incomingLink} ===');
       final response = await _unituneRepo.getLinks(widget.incomingLink);
+      debugPrint(
+        '=== API call completed, response: ${response != null ? "SUCCESS" : "NULL"} ===',
+      );
 
-      if (!mounted) return;
+      // IMPORTANT: Set response BEFORE checking mounted
+      if (response != null) {
+        _response = response;
+      }
+
+      debugPrint('=== Checking mounted state: $mounted ===');
+      if (!mounted) {
+        debugPrint(
+          '=== Widget unmounted, but continuing with music app launch ===',
+        );
+        // Don't return early - we can still launch the music app
+      }
 
       if (response == null) {
-        setState(() {
-          _error =
-              'Unable to process this music link. Please check your internet connection and try again.';
-          _isLoading = false;
-        });
+        debugPrint('=== API returned null, showing error ===');
+        if (mounted) {
+          setState(() {
+            _error =
+                'Unable to process this music link. Please check your internet connection and try again.';
+            _isLoading = false;
+          });
+        }
         return;
       }
 
-      // Cache the response
-      await _cacheResponse(response, musicService);
+      debugPrint(
+        '=== Response received, title: ${response.title}, artist: ${response.artistName} ===',
+      );
+      debugPrint(
+        '=== Available platforms: ${response.linksByPlatform.keys.join(", ")} ===',
+      );
 
-      // Get preferred messenger BEFORE setState to decide on flow
-      final messenger = ref.read(preferredMessengerProvider);
+      // Cache the response
+      debugPrint('=== Starting cache operation ===');
+      try {
+        await _cacheResponse(response, musicService);
+        debugPrint('=== Cache operation completed ===');
+      } catch (e) {
+        debugPrint('=== Cache operation failed: $e ===');
+        // Continue even if caching fails
+      }
+
+      debugPrint('=== Reading preferred messenger ===');
+      // Get preferred messenger - handle disposed widget
+      MessengerService? messenger;
+      try {
+        messenger = ref.read(preferredMessengerProvider);
+        debugPrint('=== Preferred messenger: ${messenger?.name ?? "null"} ===');
+      } catch (e) {
+        debugPrint(
+          '=== Cannot read messenger (widget disposed), using null ===',
+        );
+        messenger = null;
+      }
 
       // For share mode: ALWAYS share directly, never show UI
       if (widget.mode == ProcessingMode.share) {
@@ -162,20 +204,26 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
         );
         // Keep loading state and share directly - NO UI shown
         _response = response;
+        debugPrint('=== Calling _shareToMessenger ===');
         await _shareToMessenger();
+        debugPrint('=== _shareToMessenger completed ===');
         return;
       }
 
       // For open mode: check if music app is installed
       if (widget.mode == ProcessingMode.open) {
+        debugPrint('=== OPEN mode: Checking if music app is installed ===');
         final isInstalled = await _isMusicAppInstalled(musicService);
+        debugPrint('=== Music app installed: $isInstalled ===');
         if (isInstalled) {
           debugPrint(
             '=== Fast OPEN mode: Direct to music app (${musicService?.name ?? "default"}) ===',
           );
           // Keep loading state and open directly - NO UI shown
           _response = response;
+          debugPrint('=== Calling _openInMusicApp ===');
           await _openInMusicApp();
+          debugPrint('=== _openInMusicApp completed ===');
           return;
         }
       }
@@ -234,7 +282,13 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
         cachedAt: DateTime.now(),
       );
 
-      await ref.read(linkCacheRepositoryProvider).save(cached);
+      // Don't use ref if widget is disposed
+      try {
+        await ref.read(linkCacheRepositoryProvider).save(cached);
+      } catch (e) {
+        debugPrint('Cannot access ref (widget disposed): $e');
+        // Can't cache if widget is disposed, but that's okay
+      }
     } catch (e) {
       debugPrint('Error caching response: $e');
     }
@@ -242,7 +296,13 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
 
   /// Check if a music app is installed
   Future<bool> _isMusicAppInstalled(MusicService? musicService) async {
-    if (musicService == null) return true; // Will use original link
+    debugPrint('=== _isMusicAppInstalled START ===');
+    debugPrint('Checking for service: ${musicService?.name ?? "null"}');
+
+    if (musicService == null) {
+      debugPrint('=== Service is null, returning true ===');
+      return true; // Will use original link
+    }
 
     String urlScheme;
     switch (musicService) {
@@ -267,20 +327,41 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     }
 
     try {
+      debugPrint('=== Checking URL scheme: $urlScheme ===');
       final uri = Uri.parse(urlScheme);
-      return await canLaunchUrl(uri);
+      final result = await canLaunchUrl(uri);
+      debugPrint('=== canLaunchUrl result: $result ===');
+      debugPrint('=== _isMusicAppInstalled END ===');
+      return result;
     } catch (e) {
-      debugPrint('Error checking music app availability: $e');
+      debugPrint('=== ERROR in _isMusicAppInstalled: $e ===');
+      debugPrint('=== _isMusicAppInstalled END (error) ===');
       return false;
     }
   }
 
   Future<void> _shareToMessenger() async {
+    debugPrint('=== _shareToMessenger START ===');
     final response = _response;
-    if (response == null) return;
+    if (response == null) {
+      debugPrint('=== _shareToMessenger: response is null, returning ===');
+      return;
+    }
 
-    final messenger = ref.read(preferredMessengerProvider);
+    MessengerService? messenger;
+    try {
+      messenger = ref.read(preferredMessengerProvider);
+      debugPrint('=== Preferred messenger: ${messenger?.name ?? "system"} ===');
+    } catch (e) {
+      debugPrint(
+        '=== Cannot read messenger (widget disposed), using system share ===',
+      );
+      messenger = null;
+    }
+
+    debugPrint('=== Generating share link ===');
     final shareLink = _generateShareLink(response);
+    debugPrint('=== Share link: $shareLink ===');
 
     final songInfo = response.title != null && response.artistName != null
         ? '${response.title} by ${response.artistName}'
@@ -310,40 +391,63 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     }
 
     if (launchUrlString != null) {
-      final uri = Uri.parse(launchUrlString);
-      if (await canLaunchUrl(uri)) {
-        HapticFeedback.mediumImpact();
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      debugPrint('=== Attempting to launch messenger: $launchUrlString ===');
+      try {
+        final uri = Uri.parse(launchUrlString);
+        final canLaunch = await canLaunchUrl(uri);
+        debugPrint('=== canLaunchUrl result: $canLaunch ===');
 
-        // Save to history
-        await _saveToHistory(HistoryType.shared, shareLink);
+        if (canLaunch) {
+          HapticFeedback.mediumImpact();
+          debugPrint('=== Launching messenger app ===');
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
 
-        // Invalidate statistics providers to refresh chart
-        ref.invalidate(sharedHistoryProvider);
+          // Save to history
+          debugPrint('=== Saving to history ===');
+          await _saveToHistory(HistoryType.shared, shareLink);
 
-        // Close the processing screen after launching
-        if (mounted) {
-          Navigator.of(context).pop();
+          // Invalidate statistics providers to refresh chart
+          try {
+            ref.invalidate(sharedHistoryProvider);
+          } catch (e) {
+            debugPrint('Cannot invalidate provider (widget disposed)');
+          }
+
+          // Close the processing screen after launching
+          debugPrint('=== Popping navigation ===');
+          if (mounted) {
+            Navigator.of(context).pop();
+          }
+          debugPrint('=== _shareToMessenger END (messenger launched) ===');
+          return;
+        } else {
+          // App not installed - fallback to system share
+          debugPrint('=== Messenger app not installed, using system share ===');
         }
-        return;
-      } else {
-        // App not installed - fallback to system share
-        debugPrint('=== Messenger app not installed, using system share ===');
+      } catch (e) {
+        debugPrint('=== ERROR launching messenger: $e ===');
+        // Fallback to system share
       }
     }
 
     // Fallback: use system share (no intermediate screen)
     if (mounted) {
+      debugPrint('=== Using system share ===');
       HapticFeedback.mediumImpact();
       // Save to history before sharing
       await _saveToHistory(HistoryType.shared, shareLink);
 
       // Invalidate statistics providers to refresh chart
-      ref.invalidate(sharedHistoryProvider);
+      try {
+        ref.invalidate(sharedHistoryProvider);
+      } catch (e) {
+        debugPrint('Cannot invalidate provider (widget disposed)');
+      }
 
       // Use system share - AWAIT the async function
       await _showSystemShare(message);
     }
+    debugPrint('=== _shareToMessenger END ===');
   }
 
   /// Show system share dialog
@@ -370,13 +474,25 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
   }
 
   Future<void> _openInMusicApp() async {
+    debugPrint('=== _openInMusicApp START ===');
     final response = _response;
-    if (response == null) return;
+    if (response == null) {
+      debugPrint('=== _openInMusicApp: response is null, returning ===');
+      return;
+    }
 
-    final musicService = ref.read(preferredMusicServiceProvider);
+    MusicService? musicService;
+    try {
+      musicService = ref.read(preferredMusicServiceProvider);
+      debugPrint('Preferred service: ${musicService?.name ?? "none"}');
+    } catch (e) {
+      debugPrint(
+        '=== Cannot read music service (widget disposed), using null ===',
+      );
+      musicService = null;
+    }
 
     debugPrint('=== _openInMusicApp: Opening music app ===');
-    debugPrint('Preferred service: ${musicService?.name ?? "none"}');
     debugPrint('Original link: ${widget.incomingLink}');
 
     // If no preference set, open original link
@@ -384,23 +500,45 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
       debugPrint(
         'No preference set, opening original link: ${widget.incomingLink}',
       );
-      final uri = Uri.parse(widget.incomingLink);
+      try {
+        final uri = Uri.parse(widget.incomingLink);
+        debugPrint('=== Checking if can launch URL ===');
 
-      // Check if app is available
-      final canOpen = await canLaunchUrl(uri);
-      if (canOpen) {
-        HapticFeedback.mediumImpact();
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-        await _saveToHistory(HistoryType.received, null);
+        // Check if app is available
+        final canOpen = await canLaunchUrl(uri);
+        debugPrint('=== canLaunchUrl result: $canOpen ===');
 
-        // Invalidate statistics providers to refresh chart
-        ref.invalidate(receivedHistoryProvider);
+        if (canOpen) {
+          HapticFeedback.mediumImpact();
+          debugPrint('=== Launching URL ===');
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          debugPrint('=== URL launched, saving to history ===');
+          await _saveToHistory(HistoryType.received, null);
+          debugPrint('=== History saved ===');
 
-        if (mounted) Navigator.of(context).pop();
-      } else {
+          // Invalidate statistics providers to refresh chart
+          try {
+            ref.invalidate(receivedHistoryProvider);
+          } catch (e) {
+            debugPrint('Cannot invalidate provider (widget disposed)');
+          }
+
+          debugPrint('=== Popping navigation ===');
+          if (mounted) Navigator.of(context).pop();
+          debugPrint('=== Navigation popped ===');
+        } else {
+          debugPrint('=== Cannot launch URL, showing error ===');
+          if (mounted) {
+            setState(() {
+              _error = 'Cannot open this link. Please install the music app.';
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint('=== ERROR in _openInMusicApp (no preference): $e ===');
         if (mounted) {
           setState(() {
-            _error = 'Cannot open this link. Please install the music app.';
+            _error = 'Error opening link: $e';
           });
         }
       }
@@ -408,44 +546,71 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     }
 
     // Get the link for the preferred service
-    final targetUrl = response.getUrlForService(musicService);
+    try {
+      debugPrint('=== Getting URL for service: ${musicService.name} ===');
+      final targetUrl = response.getUrlForService(musicService);
 
-    debugPrint('Target URL for ${musicService.name}: $targetUrl');
+      debugPrint('Target URL for ${musicService.name}: $targetUrl');
 
-    if (targetUrl != null) {
-      final uri = Uri.parse(targetUrl);
+      if (targetUrl != null) {
+        final uri = Uri.parse(targetUrl);
 
-      // Check if the music app is installed
-      final canOpen = await canLaunchUrl(uri);
-      if (canOpen) {
-        HapticFeedback.mediumImpact();
-        debugPrint('Launching URL: $targetUrl');
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-        await _saveToHistory(HistoryType.received, null);
+        debugPrint('=== Checking if can launch target URL ===');
+        // Check if the music app is installed
+        final canOpen = await canLaunchUrl(uri);
+        debugPrint('=== canLaunchUrl result: $canOpen ===');
 
-        // Invalidate statistics providers to refresh chart
-        ref.invalidate(receivedHistoryProvider);
+        if (canOpen) {
+          HapticFeedback.mediumImpact();
+          debugPrint('Launching URL: $targetUrl');
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          debugPrint('=== URL launched, saving to history ===');
+          await _saveToHistory(HistoryType.received, null);
+          debugPrint('=== History saved ===');
 
-        if (mounted) Navigator.of(context).pop();
+          // Invalidate statistics providers to refresh chart
+          try {
+            ref.invalidate(receivedHistoryProvider);
+          } catch (e) {
+            debugPrint('Cannot invalidate provider (widget disposed)');
+          }
+
+          debugPrint('=== Popping navigation ===');
+          if (mounted) Navigator.of(context).pop();
+          debugPrint('=== Navigation popped ===');
+        } else {
+          // App not installed - show error
+          debugPrint(
+            'ERROR: ${musicService?.name ?? "Music app"} not installed',
+          );
+          if (mounted) {
+            setState(() {
+              _error =
+                  '${musicService?.name ?? "Music app"} is not installed. Please install it or change your preferred music service in settings.';
+            });
+          }
+        }
       } else {
-        // App not installed - show error
-        debugPrint('ERROR: ${musicService.name} app not installed');
+        // Service link not found for this song
+        debugPrint(
+          'ERROR: Song not available on ${musicService?.name ?? "preferred service"}',
+        );
         if (mounted) {
           setState(() {
             _error =
-                '${musicService.name} is not installed. Please install it or change your preferred music service in settings.';
+                'Song not available on ${musicService?.name ?? "preferred service"}';
           });
         }
       }
-    } else {
-      // Service link not found for this song
-      debugPrint('ERROR: Song not available on ${musicService.name}');
+    } catch (e) {
+      debugPrint('=== ERROR in _openInMusicApp (with preference): $e ===');
       if (mounted) {
         setState(() {
-          _error = 'Song not available on ${musicService.name}';
+          _error = 'Error opening link: $e';
         });
       }
     }
+    debugPrint('=== _openInMusicApp END ===');
   }
 
   /// Save the current song to history
@@ -468,8 +633,12 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
       await ref.read(historyRepositoryProvider).add(entry);
 
       // Invalidate providers to refresh history screens
-      ref.invalidate(sharedHistoryProvider);
-      ref.invalidate(receivedHistoryProvider);
+      try {
+        ref.invalidate(sharedHistoryProvider);
+        ref.invalidate(receivedHistoryProvider);
+      } catch (e) {
+        debugPrint('Cannot invalidate providers (widget disposed)');
+      }
 
       // Extract and update dynamic app colors from album artwork
       // Only update colors when sharing (not receiving)
@@ -495,7 +664,13 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
   }
 
   String _generateShareLink(UnituneResponse response) {
-    return UniTuneLinkEncoder.createShareLinkFromUrl(widget.incomingLink);
+    try {
+      return UniTuneLinkEncoder.createShareLinkFromUrl(widget.incomingLink);
+    } catch (e) {
+      debugPrint('=== Error generating share link: $e ===');
+      // Fallback: return the original link
+      return widget.incomingLink;
+    }
   }
 
   @override

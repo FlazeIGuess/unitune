@@ -48,6 +48,94 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="unitune"/>
             </intent-filter>
+            
+            <!-- MUSIC LINK INTERCEPTION: Spotify (open.spotify.com) -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="open.spotify.com"/>
+            </intent-filter>
+            
+            <!-- MUSIC LINK INTERCEPTION: Spotify (spotify.link) -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="spotify.link"/>
+            </intent-filter>
+            
+            <!-- MUSIC LINK INTERCEPTION: Apple Music -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="music.apple.com"/>
+            </intent-filter>
+            
+            <!-- MUSIC LINK INTERCEPTION: Tidal (tidal.com) -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="tidal.com"/>
+            </intent-filter>
+            
+            <!-- MUSIC LINK INTERCEPTION: Tidal (listen.tidal.com) -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="listen.tidal.com"/>
+            </intent-filter>
+            
+            <!-- MUSIC LINK INTERCEPTION: YouTube Music -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="music.youtube.com"/>
+            </intent-filter>
+            
+            <!-- MUSIC LINK INTERCEPTION: YouTube (youtu.be) -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="youtu.be"/>
+            </intent-filter>
+            
+            <!-- MUSIC LINK INTERCEPTION: Deezer (deezer.com) -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="deezer.com"/>
+            </intent-filter>
+            
+            <!-- MUSIC LINK INTERCEPTION: Deezer (www.deezer.com) -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="www.deezer.com"/>
+            </intent-filter>
+            
+            <!-- MUSIC LINK INTERCEPTION: Deezer (deezer.page.link) -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="deezer.page.link"/>
+            </intent-filter>
+            
+            <!-- MUSIC LINK INTERCEPTION: Amazon Music -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="music.amazon.com"/>
+            </intent-filter>
         </activity>
         
         <meta-data

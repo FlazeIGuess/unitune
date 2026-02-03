@@ -1,8 +1,10 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:app_settings/app_settings.dart';
 import '../../core/constants/services.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/dynamic_theme.dart';
@@ -76,6 +78,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
 
                         SizedBox(height: AppTheme.spacing.xl),
+
+                        // ADVANCED SECTION (Android only)
+                        if (Platform.isAndroid) ...[
+                          _SectionHeader(title: 'Advanced'),
+                          SizedBox(height: AppTheme.spacing.s),
+                          _buildAdvancedSection(context, ref),
+                          SizedBox(height: AppTheme.spacing.xl),
+                        ],
 
                         // ABOUT SECTION
                         // Requirement 11.6: Display version information
@@ -184,7 +194,309 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  /// Build About section with version information
+  /// Build Advanced section with Music Link Interception toggle
+  /// Android only feature - allows UniTune to intercept music links
+  Widget _buildAdvancedSection(BuildContext context, WidgetRef ref) {
+    final interceptEnabled = ref.watch(interceptMusicLinksProvider);
+
+    return Column(
+      children: [
+        LiquidGlassCard(
+          padding: EdgeInsets.zero,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              InkWell(
+                onTap: () async {
+                  HapticFeedback.lightImpact();
+                  final newValue = !interceptEnabled;
+                  await ref
+                      .read(preferencesManagerProvider)
+                      .setInterceptMusicLinks(newValue);
+                  ref.read(interceptMusicLinksProvider.notifier).state =
+                      newValue;
+
+                  // Show setup dialog on first enable
+                  if (newValue && context.mounted) {
+                    _showInterceptionSetupDialog(context);
+                  }
+                },
+                child: Padding(
+                  padding: EdgeInsets.all(AppTheme.spacing.m),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.link,
+                        color: AppTheme.colors.textSecondary,
+                        size: 24,
+                      ),
+                      SizedBox(width: AppTheme.spacing.m),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Intercept Music Links',
+                              style: AppTheme.typography.bodyLarge.copyWith(
+                                color: AppTheme.colors.textPrimary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Open Spotify, Tidal, etc. links with UniTune (Android only)',
+                              style: AppTheme.typography.bodyMedium.copyWith(
+                                color: AppTheme.colors.textMuted,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: interceptEnabled,
+                        onChanged: (value) async {
+                          HapticFeedback.lightImpact();
+                          await ref
+                              .read(preferencesManagerProvider)
+                              .setInterceptMusicLinks(value);
+                          ref.read(interceptMusicLinksProvider.notifier).state =
+                              value;
+
+                          // Show setup dialog on first enable
+                          if (value && context.mounted) {
+                            _showInterceptionSetupDialog(context);
+                          }
+                        },
+                        activeColor: context.primaryColor,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (interceptEnabled) ...[
+          SizedBox(height: AppTheme.spacing.s),
+          LiquidGlassCard(
+            padding: EdgeInsets.zero,
+            child: InkWell(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                _openLinkSettings(context);
+              },
+              child: Padding(
+                padding: EdgeInsets.all(AppTheme.spacing.m),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.settings_applications,
+                      color: AppTheme.colors.textSecondary,
+                      size: 24,
+                    ),
+                    SizedBox(width: AppTheme.spacing.m),
+                    Expanded(
+                      child: Text(
+                        'Configure Link Handling',
+                        style: AppTheme.typography.bodyLarge.copyWith(
+                          color: AppTheme.colors.textPrimary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.open_in_new,
+                      color: AppTheme.colors.textMuted,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Open Android link settings for this app
+  void _openLinkSettings(BuildContext context) async {
+    try {
+      // Open app settings using app_settings package
+      await AppSettings.openAppSettings();
+    } catch (e) {
+      // Fallback: Show manual instructions
+      if (context.mounted) {
+        _showManualInstructions(context);
+      }
+    }
+  }
+
+  /// Show manual instructions dialog
+  void _showManualInstructions(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.colors.backgroundDeep,
+        title: Text(
+          'Configure Link Handling',
+          style: AppTheme.typography.titleMedium.copyWith(
+            color: AppTheme.colors.textPrimary,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Follow these steps to intercept music links:',
+              style: AppTheme.typography.bodyMedium.copyWith(
+                color: AppTheme.colors.textSecondary,
+              ),
+            ),
+            SizedBox(height: 16),
+            _buildSetupStep('1', 'Open Android Settings'),
+            SizedBox(height: 8),
+            _buildSetupStep('2', 'Go to Apps > UniTune'),
+            SizedBox(height: 8),
+            _buildSetupStep('3', 'Tap "Open by default"'),
+            SizedBox(height: 8),
+            _buildSetupStep('4', 'Enable "Open supported links"'),
+            SizedBox(height: 8),
+            _buildSetupStep('5', 'Select music services to intercept'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Got it',
+              style: TextStyle(color: context.primaryColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Show setup dialog with instructions
+  void _showInterceptionSetupDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.colors.backgroundDeep,
+        title: Text(
+          'Music Link Interception',
+          style: AppTheme.typography.titleMedium.copyWith(
+            color: AppTheme.colors.textPrimary,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'To intercept music links, you need to configure Android link handling:',
+              style: AppTheme.typography.bodyMedium.copyWith(
+                color: AppTheme.colors.textSecondary,
+              ),
+            ),
+            SizedBox(height: 16),
+            _buildSetupStep('1', 'Tap "Configure Link Handling" below'),
+            SizedBox(height: 8),
+            _buildSetupStep('2', 'Enable "Open supported links"'),
+            SizedBox(height: 8),
+            _buildSetupStep('3', 'Select music services to intercept'),
+            SizedBox(height: 16),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.colors.textMuted.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: AppTheme.colors.textMuted,
+                    size: 20,
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Android will ask you to choose between UniTune and the music app each time',
+                      style: AppTheme.typography.bodyMedium.copyWith(
+                        color: AppTheme.colors.textMuted,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Later',
+              style: TextStyle(color: AppTheme.colors.textMuted),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _openLinkSettings(context);
+            },
+            child: Text(
+              'Open Settings',
+              style: TextStyle(color: context.primaryColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build setup step widget
+  Widget _buildSetupStep(String number, String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: AppTheme.colors.primary.withValues(alpha: 0.2),
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Text(
+              number,
+              style: AppTheme.typography.bodyMedium.copyWith(
+                color: AppTheme.colors.primary,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ),
+        SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: AppTheme.typography.bodyMedium.copyWith(
+              color: AppTheme.colors.textSecondary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Show info dialog explaining music link interception
   /// Requirement 11.6: Display version information in About section
   /// Requirement 17.1: Ensure all text is in English
   Widget _buildAboutSection(BuildContext context) {
@@ -209,7 +521,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                       Text(
-                        'Version 1.2.0',
+                        'Version 1.3.0',
                         style: AppTheme.typography.bodyMedium.copyWith(
                           color: AppTheme.colors.textSecondary,
                         ),

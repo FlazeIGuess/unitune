@@ -11,6 +11,7 @@ class PrefsKeys {
   static const String musicService = 'preferred_music_service';
   static const String messenger = 'preferred_messenger';
   static const String onboardingComplete = 'onboarding_complete';
+  static const String interceptMusicLinks = 'intercept_music_links';
 }
 
 /// Manages local preferences (100% local, no cloud sync)
@@ -56,6 +57,15 @@ class PreferencesManager {
     await _prefs.setBool(PrefsKeys.onboardingComplete, value);
   }
 
+  // === MUSIC LINK INTERCEPTION (Android only) ===
+  bool get interceptMusicLinks {
+    return _prefs.getBool(PrefsKeys.interceptMusicLinks) ?? false;
+  }
+
+  Future<void> setInterceptMusicLinks(bool value) async {
+    await _prefs.setBool(PrefsKeys.interceptMusicLinks, value);
+  }
+
   // === CLEAR ALL (for testing/reset) ===
   Future<void> clearAll() async {
     await _prefs.clear();
@@ -86,6 +96,11 @@ final preferredMessengerProvider = StateProvider<MessengerService?>((ref) {
 /// Provider for onboarding status (reactive)
 final isOnboardingCompleteProvider = StateProvider<bool>((ref) {
   return ref.watch(preferencesManagerProvider).isOnboardingComplete;
+});
+
+/// Provider for music link interception setting (reactive)
+final interceptMusicLinksProvider = StateProvider<bool>((ref) {
+  return ref.watch(preferencesManagerProvider).interceptMusicLinks;
 });
 
 // === HISTORY PROVIDERS ===

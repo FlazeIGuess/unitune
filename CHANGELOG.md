@@ -6,6 +6,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.3.0] - 2026-02-03
+
+### Added
+- **Music Link Interception (Android only)**: UniTune can now intercept Spotify, Tidal, Apple Music, YouTube Music, Deezer, and Amazon Music links
+- Settings toggle for Music Link Interception (disabled by default, Android only)
+- Info dialog explaining how link interception works
+- Support for direct deep linking from unitune.art URLs (bypasses browser)
+- Button to open Android link handling settings directly from app
+- Comprehensive error handling for disposed widgets during async operations
+
+### Changed
+- Android App Links verification now properly configured with SHA256 fingerprint
+- iOS Universal Links configuration updated (requires Team ID)
+- Intent filters added for all major music streaming platforms
+- "Get UniTune" button on web landing page now links to GitHub repository
+- Advanced settings section only visible on Android devices
+- Improved processing flow to handle widget disposal during API calls
+
+### Fixed
+- App hanging/crashing after successful API response when opening music links
+- "Cannot use ref after widget disposed" errors during link processing
+- Widget unmounting during API calls causing incomplete operations
+- Null safety issues when accessing music service preferences after disposal
+- Apple Music URL parsing for `/song/name/ID` format
+- HTTP client disposal errors by using shared static client
+- Processing continues even if widget unmounts (music app still launches)
+
+### Technical
+- Added intent filters for music service domains in AndroidManifest.xml
+- Extended PreferencesManager with interceptMusicLinks setting
+- Updated .well-known/apple-app-site-association with correct bundle ID
+- Improved deep link handling for music platform URLs
+- Added Platform.isAndroid checks for Android-specific features
+- Protected all ref.read() and ref.invalidate() calls with try-catch blocks
+- Added 10-second timeout to API requests
+- Comprehensive debug logging for troubleshooting
+- JSON parsing error handling with stack traces
+
 ## [1.2.0] - 2026-02-03
 
 ### Added

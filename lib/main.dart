@@ -243,15 +243,17 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
       }
     }
 
-    // Direct music link (shouldn't normally happen via deep link)
+    // Direct music link (intercepted from Spotify/Tidal/etc.)
     final link = uri.toString();
     if (_isMusicLink(link)) {
-      debugPrint('SHARE mode: Direct music link received: $link');
+      // Music links via deep link are ALWAYS in OPEN mode
+      // Because if the user didn't want UniTune to handle it,
+      // they would have chosen the music app in Android's app picker
+      debugPrint('OPEN mode: Intercepted music link: $link');
 
       // Validate the URL before processing
       final validationResult = UrlValidator.validateAndSanitize(link);
       if (!validationResult.isValid) {
-        // Log URL parsing failure locally (not sent externally)
         developer.log(
           'URL validation failed',
           name: 'URLValidation',
@@ -262,10 +264,8 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
         return;
       }
 
-      _navigateToProcessing(
-        validationResult.sanitizedUrl,
-        ProcessingMode.share,
-      );
+      // OPEN mode: Get link for preferred service and open
+      _navigateToProcessing(validationResult.sanitizedUrl, ProcessingMode.open);
     }
   }
 
@@ -362,8 +362,20 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
               validationResult.sanitizedUrl,
               ProcessingMode.open,
             );
-          } else {
-            // Normal music link from Spotify/Tidal etc. = SHARE mode
+          } else if (_isMusicLink(link)) {
+            // Check if Music Link Interception is enabled
+            final interceptEnabled = ref.read(interceptMusicLinksProvider);
+
+            if (interceptEnabled) {
+              // Music link interception is ON - this link came via deep link
+              // Skip it here, let _handleDeepLink handle it
+              debugPrint(
+                'Skipping music link in share intent (will be handled by deep link): $link',
+              );
+              return;
+            }
+
+            // Music link interception is OFF - this is a real share from music app
             debugPrint(
               'SHARE mode: Received music link via share intent: $link',
             );

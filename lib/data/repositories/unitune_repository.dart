@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:http/http.dart' as http;
 import '../../core/constants/services.dart';
@@ -94,9 +95,15 @@ class UnituneRepository {
   static const int _maxRetries = 3;
   static const Duration _initialDelay = Duration(milliseconds: 500);
 
-  final http.Client _client;
+  // Shared HTTP client - don't close it
+  static final http.Client _sharedClient = http.Client();
 
-  UnituneRepository({http.Client? client}) : _client = client ?? http.Client();
+  final http.Client _client;
+  final bool _isSharedClient;
+
+  UnituneRepository({http.Client? client})
+    : _client = client ?? _sharedClient,
+      _isSharedClient = client == null;
 
   /// Convert a music URL to get links for all platforms
   /// Returns null if the API call fails or the URL is not recognized
@@ -123,7 +130,20 @@ class UnituneRepository {
           error: 'Attempt $attempt: $uri',
         );
 
-        final response = await _client.get(uri);
+        final response = await _client
+            .get(uri)
+            .timeout(
+              const Duration(seconds: 10),
+              onTimeout: () {
+                developer.log(
+                  'UniTune API request timed out',
+                  name: 'UnituneRepository',
+                );
+                throw TimeoutException(
+                  'API request timed out after 10 seconds',
+                );
+              },
+            );
 
         developer.log(
           'UniTune API Response',
@@ -133,8 +153,33 @@ class UnituneRepository {
         );
 
         if (response.statusCode == 200) {
-          final json = jsonDecode(response.body) as Map<String, dynamic>;
-          return UnituneResponse.fromJson(json);
+          try {
+            developer.log('Parsing JSON response', name: 'UnituneRepository');
+            final json = jsonDecode(response.body) as Map<String, dynamic>;
+            developer.log(
+              'JSON parsed successfully',
+              name: 'UnituneRepository',
+            );
+            final result = UnituneResponse.fromJson(json);
+            developer.log(
+              'UnituneResponse created successfully',
+              name: 'UnituneRepository',
+            );
+            return result;
+          } catch (e, stackTrace) {
+            developer.log(
+              'Error parsing API response',
+              name: 'UnituneRepository',
+              error: e,
+              stackTrace: stackTrace,
+            );
+            developer.log(
+              'Response body',
+              name: 'UnituneRepository',
+              error: response.body,
+            );
+            return null;
+          }
         } else if (response.statusCode == 404) {
           developer.log(
             'UniTune API endpoint not found (404)',
@@ -196,6 +241,9 @@ class UnituneRepository {
   }
 
   void dispose() {
-    _client.close();
+    // Only close client if it's not the shared one
+    if (!_isSharedClient) {
+      _client.close();
+    }
   }
 }

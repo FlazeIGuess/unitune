@@ -150,15 +150,34 @@ class UniTuneLinkEncoder {
       }
 
       // Apple Music: https://music.apple.com/us/album/song-name/1234567890?i=987654321
+      // or: https://music.apple.com/us/song/song-name/1662999658
       if (host.contains('music.apple.com')) {
+        print('  Detected Apple Music URL');
+
+        // Try query parameter first (album link with track ID)
         final trackId = uri.queryParameters['i'];
         if (trackId != null) {
+          print('  ✅ Apple Music match (query param): id=$trackId');
           return _MusicUrlParts(
             platform: 'appleMusic',
             type: 'song',
             trackId: trackId,
           );
         }
+
+        // Try path-based ID (direct song link)
+        // Match: /us/song/song-name/1662999658 or /song/song-name/1662999658
+        final match = RegExp(r'/song/[^/]+/(\d+)').firstMatch(path);
+        if (match != null) {
+          print('  ✅ Apple Music match (path): id=${match.group(1)}');
+          return _MusicUrlParts(
+            platform: 'appleMusic',
+            type: 'song',
+            trackId: match.group(1)!,
+          );
+        }
+
+        print('  ❌ Apple Music regex did not match');
       }
 
       // Tidal: https://tidal.com/browse/track/258735410
