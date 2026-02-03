@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/dynamic_theme.dart';
 import '../../../core/widgets/liquid_glass_container.dart';
 
 /// Onboarding Slide Component
@@ -78,23 +79,36 @@ class OnboardingSlide extends StatelessWidget {
   }
 
   Widget _buildProgressIndicator() {
-    return Row(
-      children: List.generate(totalSlides, (index) {
-        final isActive = index == slideIndex;
-        return Expanded(
-          child: Container(
-            height: 4,
-            margin: EdgeInsets.only(
-              right: index < totalSlides - 1 ? AppTheme.spacing.xs : 0,
-            ),
-            decoration: BoxDecoration(
-              gradient: isActive ? AppTheme.primaryGradient : null,
-              color: isActive ? null : AppTheme.colors.backgroundCard,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
+    return Builder(
+      builder: (context) {
+        return Row(
+          children: List.generate(totalSlides, (index) {
+            final isActive = index == slideIndex;
+            return Expanded(
+              child: Container(
+                height: 4,
+                margin: EdgeInsets.only(
+                  right: index < totalSlides - 1 ? AppTheme.spacing.xs : 0,
+                ),
+                decoration: BoxDecoration(
+                  gradient: isActive
+                      ? LinearGradient(
+                          colors: [
+                            context.primaryColor,
+                            context.primaryColor.withValues(alpha: 0.7),
+                          ],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        )
+                      : null,
+                  color: isActive ? null : AppTheme.colors.backgroundCard,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            );
+          }),
         );
-      }),
+      },
     );
   }
 }

@@ -31,7 +31,7 @@ class MinimalTrendGraph extends StatefulWidget {
 
 class _MinimalTrendGraphState extends State<MinimalTrendGraph> {
   int? _selectedIndex;
-  bool _isLongPressing = false;
+  bool _isInteracting = false;
   String? _dataKey;
 
   @override
@@ -44,35 +44,26 @@ class _MinimalTrendGraphState extends State<MinimalTrendGraph> {
       _dataKey = newKey;
       setState(() {
         _selectedIndex = null;
-        _isLongPressing = false;
+        _isInteracting = false;
       });
     }
   }
 
-  void _handleLongPressStart(LongPressStartDetails details, Size size) {
+  void _handleInteractionStart(Offset localPosition, Size size) {
     if (widget.data.isEmpty) return;
 
     HapticFeedback.mediumImpact();
     setState(() {
-      _isLongPressing = true;
-      _selectedIndex = _getNearestPointIndex(
-        details.localPosition.dx,
-        size.width,
-      );
+      _isInteracting = true;
+      _selectedIndex = _getNearestPointIndex(localPosition.dx, size.width);
     });
     widget.onPointSelected?.call(_selectedIndex);
   }
 
-  void _handleLongPressMoveUpdate(
-    LongPressMoveUpdateDetails details,
-    Size size,
-  ) {
-    if (widget.data.isEmpty || !_isLongPressing) return;
+  void _handleInteractionUpdate(Offset localPosition, Size size) {
+    if (widget.data.isEmpty || !_isInteracting) return;
 
-    final newIndex = _getNearestPointIndex(
-      details.localPosition.dx,
-      size.width,
-    );
+    final newIndex = _getNearestPointIndex(localPosition.dx, size.width);
     if (newIndex != _selectedIndex) {
       HapticFeedback.selectionClick();
       setState(() {
@@ -82,16 +73,16 @@ class _MinimalTrendGraphState extends State<MinimalTrendGraph> {
     }
   }
 
-  void _handleLongPressEnd(LongPressEndDetails details) {
-    if (!_isLongPressing) return;
+  void _handleInteractionEnd() {
+    if (!_isInteracting) return;
 
     setState(() {
-      _isLongPressing = false;
+      _isInteracting = false;
     });
 
     // Auto-clear after 300ms
     Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted && !_isLongPressing) {
+      if (mounted && !_isInteracting) {
         setState(() {
           _selectedIndex = null;
         });
@@ -130,10 +121,17 @@ class _MinimalTrendGraphState extends State<MinimalTrendGraph> {
         final size = Size(constraints.maxWidth, widget.height);
 
         return GestureDetector(
-          onLongPressStart: (details) => _handleLongPressStart(details, size),
+          // Handle both pan (drag) and long press for better UX
+          onPanStart: (details) =>
+              _handleInteractionStart(details.localPosition, size),
+          onPanUpdate: (details) =>
+              _handleInteractionUpdate(details.localPosition, size),
+          onPanEnd: (_) => _handleInteractionEnd(),
+          onLongPressStart: (details) =>
+              _handleInteractionStart(details.localPosition, size),
           onLongPressMoveUpdate: (details) =>
-              _handleLongPressMoveUpdate(details, size),
-          onLongPressEnd: _handleLongPressEnd,
+              _handleInteractionUpdate(details.localPosition, size),
+          onLongPressEnd: (_) => _handleInteractionEnd(),
           child: CustomPaint(
             size: size,
             painter: _TrendGraphPainter(
@@ -304,7 +302,7 @@ class _TrendGraphPainter extends CustomPainter {
   void _drawSelectedIndicator(Canvas canvas, Size size, Offset point) {
     // Vertical line
     final linePaint = Paint()
-      ..color = lineColor.withOpacity(0.3)
+      ..color = lineColor.withValues(alpha: 0.3)
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
@@ -316,14 +314,14 @@ class _TrendGraphPainter extends CustomPainter {
 
     // Concentric circles
     final circles = [
-      (radius: 14.0, opacity: 0.15),
-      (radius: 10.0, opacity: 0.25),
-      (radius: 6.0, opacity: 0.4),
+      (radius: 14.0, alpha: 0.15),
+      (radius: 10.0, alpha: 0.25),
+      (radius: 6.0, alpha: 0.4),
     ];
 
     for (final circle in circles) {
       final paint = Paint()
-        ..color = lineColor.withOpacity(circle.opacity)
+        ..color = lineColor.withValues(alpha: circle.alpha)
         ..style = PaintingStyle.fill;
 
       canvas.drawCircle(point, circle.radius, paint);

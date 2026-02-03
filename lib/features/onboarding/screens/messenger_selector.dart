@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/dynamic_theme.dart';
 import '../../../core/widgets/liquid_glass_container.dart';
 import '../../../core/widgets/brand_logo.dart';
 import '../../../core/constants/services.dart';
@@ -228,7 +229,16 @@ class _MessengerSelectorState extends ConsumerState<MessengerSelector>
               right: index < totalSlides - 1 ? AppTheme.spacing.xs : 0,
             ),
             decoration: BoxDecoration(
-              gradient: isActive ? AppTheme.primaryGradient : null,
+              gradient: isActive
+                  ? LinearGradient(
+                      colors: [
+                        context.primaryColor,
+                        context.primaryColor.withValues(alpha: 0.7),
+                      ],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    )
+                  : null,
               color: isActive ? null : AppTheme.colors.backgroundCard,
               borderRadius: BorderRadius.circular(2),
             ),
@@ -261,7 +271,7 @@ class _MessengerSelectorState extends ConsumerState<MessengerSelector>
           padding: EdgeInsets.all(AppTheme.spacing.m),
           decoration: BoxDecoration(
             border: isSelected
-                ? Border.all(color: AppTheme.colors.primary, width: 2)
+                ? Border.all(color: context.primaryColor, width: 2)
                 : null,
             borderRadius: BorderRadius.circular(AppTheme.radii.large),
           ),
@@ -281,11 +291,7 @@ class _MessengerSelectorState extends ConsumerState<MessengerSelector>
                 ),
               ),
               if (isSelected)
-                Icon(
-                  Icons.check_circle,
-                  color: AppTheme.colors.primary,
-                  size: 24,
-                ),
+                Icon(Icons.check_circle, color: context.primaryColor, size: 24),
             ],
           ),
         ),

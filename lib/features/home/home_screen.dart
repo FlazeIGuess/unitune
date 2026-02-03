@@ -114,6 +114,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   iconSize: 24,
                   tooltip: 'Show tutorial',
                   onPressed: () {
+                    HapticFeedback.mediumImpact();
                     // Navigate to onboarding welcome screen
                     context.go('/onboarding/welcome');
                   },

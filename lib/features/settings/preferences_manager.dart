@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/services.dart';
 import '../../data/models/history_entry.dart';
 import '../../data/repositories/history_repository.dart';
+import '../../data/repositories/link_cache_repository.dart';
 
 /// Keys for SharedPreferences storage
 class PrefsKeys {
@@ -108,4 +109,12 @@ final sharedHistoryProvider = FutureProvider<List<HistoryEntry>>((ref) {
 /// Provider for received history entries
 final receivedHistoryProvider = FutureProvider<List<HistoryEntry>>((ref) {
   return ref.watch(historyRepositoryProvider).getReceived();
+});
+
+// === LINK CACHE PROVIDERS ===
+
+/// Provider for LinkCacheRepository
+final linkCacheRepositoryProvider = Provider<LinkCacheRepository>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return LinkCacheRepository(prefs);
 });

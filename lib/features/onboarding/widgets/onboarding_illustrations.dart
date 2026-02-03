@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/dynamic_theme.dart';
 import '../../../core/widgets/liquid_glass_sphere.dart';
 
 /// Onboarding Illustrations
@@ -23,10 +24,7 @@ class WelcomeIllustration extends StatelessWidget {
         width: 100, // Slightly improved size balance for sphere
         height: 100,
         fit: BoxFit.contain,
-        colorFilter: ColorFilter.mode(
-          AppTheme.colors.primary,
-          BlendMode.srcIn,
-        ),
+        colorFilter: ColorFilter.mode(context.primaryColor, BlendMode.srcIn),
         placeholderBuilder: (context) {
           return Center(
             child: Text(
@@ -60,9 +58,16 @@ class CrossPlatformIllustration extends StatelessWidget {
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              gradient: AppTheme.primaryGradient,
+              gradient: LinearGradient(
+                colors: [
+                  context.primaryColor,
+                  context.primaryColor.withValues(alpha: 0.7),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               borderRadius: BorderRadius.circular(AppTheme.radii.large),
-              boxShadow: AppTheme.glowMedium(AppTheme.colors.primary),
+              boxShadow: AppTheme.glowMedium(context.primaryColor),
             ),
             child: const Icon(Icons.music_note, size: 40, color: Colors.white),
           ),
@@ -150,9 +155,10 @@ class MessengerIllustration extends StatelessWidget {
             top: 20,
             left: 20,
             child: _buildMessageBubble(
+              context: context,
               width: 160,
               height: 100,
-              color: AppTheme.colors.primary,
+              color: context.primaryColor,
               alignment: Alignment.centerLeft,
             ),
           ),
@@ -162,6 +168,7 @@ class MessengerIllustration extends StatelessWidget {
             bottom: 40,
             right: 30,
             child: _buildMessageBubble(
+              context: context,
               width: 120,
               height: 80,
               color: AppTheme.colors.accentSuccess,
@@ -177,9 +184,16 @@ class MessengerIllustration extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                gradient: AppTheme.primaryGradient,
+                gradient: LinearGradient(
+                  colors: [
+                    context.primaryColor,
+                    context.primaryColor.withValues(alpha: 0.7),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
                 borderRadius: BorderRadius.circular(AppTheme.radii.small),
-                boxShadow: AppTheme.glowSoft(AppTheme.colors.primary),
+                boxShadow: AppTheme.glowSoft(context.primaryColor),
               ),
               child: const Icon(
                 Icons.music_note,
@@ -194,6 +208,7 @@ class MessengerIllustration extends StatelessWidget {
   }
 
   Widget _buildMessageBubble({
+    required BuildContext context,
     required double width,
     required double height,
     required Color color,

@@ -5,10 +5,45 @@ All notable changes to UniTune will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+
+## [1.2.0] - 2026-02-03
 
 ### Added
-- Future features will be listed here
+- Link caching system to reduce API calls and improve performance
+- Haptic feedback on help button and action buttons
+- UniTune logo loading animation during link conversion
+- Pan gesture support for chart scrubbing (immediate drag without hold)
+- **share_plus package for native OS share dialog support**
+
+### Changed
+- **All UI elements now use dynamic theme colors from album artwork**
+- **Completely removed intermediate share screen - always shares directly**
+- Onboarding buttons now use dynamic theme colors
+- Removed obsolete share options sheet for cleaner UX
+- Direct sharing to messenger apps when installed
+- System share opens OS share dialog when messenger not installed or systemShare selected
+- Direct opening in music apps when installed (skips intermediate screen)
+- Chart automatically refreshes after sharing/receiving songs
+- Loading animation shows only logo icon without "UniTune" text
+
+### Fixed
+- Already shared songs now use cached data instead of new API requests
+- Graphical border bug when pressing share/open buttons
+- Chart scrubbing now works on first touch (no need to release and hold again)
+- Chart not updating after sharing until manual reload
+- **"Open in Tidal" (and other music apps) screen no longer shows - opens directly when app is installed**
+- **Share screen no longer shows when messenger is selected - goes directly to messenger app**
+- **System share now properly opens OS share dialog when messenger not installed or systemShare selected**
+- **History screen now uses system share fallback when messenger not installed**
+- App availability checks before attempting to open music/messenger apps
+- Deprecated withOpacity() calls replaced with withValues()
+
+### Technical
+- Implemented LinkCacheRepository with 7-day expiration
+- Cache keys include both URL and preferred music service
+- Automatic provider invalidation for real-time UI updates
+- Better error handling with user-friendly messages
+- Removed unused code and imports
 
 ## [1.1.0] - 2026-02-02
 
@@ -77,6 +112,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deep linking support
 - Share intent handling
 
-[Unreleased]: https://github.com/FlazeIGuess/unitune/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/FlazeIGuess/unitune/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/FlazeIGuess/unitune/releases/tag/v1.2.0
 [1.1.0]: https://github.com/FlazeIGuess/unitune/releases/tag/v1.1.0
 [1.0.0]: https://github.com/FlazeIGuess/unitune/releases/tag/v1.0.0

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/dynamic_theme.dart';
 import '../../core/widgets/history_item_card.dart';
@@ -136,27 +137,32 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           break;
         case MessengerService.systemShare:
         case null:
-          // Use system share - for now just show success
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Share link: $shareLink'),
-              backgroundColor: AppTheme.colors.accentSuccess,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-          return;
+          // Use system share
+          launchUrlString = null;
+          break;
       }
 
-      final uri = Uri.parse(launchUrlString);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
+      if (launchUrlString != null) {
+        final uri = Uri.parse(launchUrlString);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          return;
+        } else {
+          // App not installed - fallback to system share
+          debugPrint('=== Messenger app not installed, using system share ===');
+        }
+      }
+
+      // Fallback: use system share
+      if (!mounted) return;
+      try {
+        await Share.share(message, subject: 'Check out this song on UniTune');
+      } catch (e) {
+        debugPrint('Error showing system share: $e');
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${messenger?.name ?? "Messenger"} not installed'),
+            content: const Text('Failed to share'),
             backgroundColor: AppTheme.colors.accentError,
             behavior: SnackBarBehavior.floating,
           ),

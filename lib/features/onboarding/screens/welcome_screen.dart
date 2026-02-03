@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/dynamic_theme.dart';
 import '../widgets/onboarding_slide.dart';
 import '../widgets/onboarding_illustrations.dart';
 
@@ -146,14 +147,18 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               children: [
                 Text(
                   'Get Started',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: context.primaryColor,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(Icons.arrow_forward, color: Colors.white, size: 20),
+                Icon(
+                  Icons.arrow_forward,
+                  color: context.primaryColor,
+                  size: 20,
+                ),
               ],
             ),
           ),

@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/constants/services.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/dynamic_theme.dart';
 import '../../core/theme/dynamic_color_provider.dart';
-import '../../core/widgets/liquid_glass_sphere.dart';
 import '../../core/widgets/primary_button.dart';
+import '../../core/widgets/unitune_logo.dart';
 import '../../core/utils/link_encoder.dart';
 import '../../data/models/history_entry.dart';
 import '../../data/repositories/unitune_repository.dart';
+import '../../data/repositories/link_cache_repository.dart';
 import '../../main.dart' show ProcessingMode;
 import '../settings/preferences_manager.dart';
 
@@ -56,6 +59,80 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
       debugPrint('Mode: ${widget.mode}');
       debugPrint('Incoming link: ${widget.incomingLink}');
 
+      final musicService = ref.read(preferredMusicServiceProvider);
+
+      // Check cache first
+      final cached = await ref
+          .read(linkCacheRepositoryProvider)
+          .get(widget.incomingLink, musicService);
+
+      if (cached != null && !cached.isExpired()) {
+        debugPrint('=== Using cached link data ===');
+
+        // Create response from cache
+        final linksByPlatform = <String, PlatformLink>{};
+        cached.convertedLinks.forEach((key, value) {
+          linksByPlatform[key] = PlatformLink(url: value);
+        });
+
+        final response = UnituneResponse(
+          title: cached.title,
+          artistName: cached.artist,
+          thumbnailUrl: cached.thumbnailUrl,
+          linksByPlatform: linksByPlatform,
+        );
+
+        if (!mounted) return;
+
+        // Get preferred messenger BEFORE setState to decide on flow
+        final messenger = ref.read(preferredMessengerProvider);
+
+        // For share mode: ALWAYS share directly, never show UI
+        if (widget.mode == ProcessingMode.share) {
+          debugPrint(
+            '=== SHARE mode: Direct share (${messenger?.name ?? "system"}) ===',
+          );
+          // Keep loading state and share directly - NO UI shown
+          _response = response;
+          await _shareToMessenger();
+          return;
+        }
+
+        // For open mode: check if music app is installed
+        if (widget.mode == ProcessingMode.open) {
+          final isInstalled = await _isMusicAppInstalled(musicService);
+          if (isInstalled) {
+            debugPrint(
+              '=== Fast OPEN mode: Direct to music app (${musicService?.name ?? "default"}) ===',
+            );
+            // Keep loading state and open directly - NO UI shown
+            _response = response;
+            await _openInMusicApp();
+            return;
+          }
+        }
+
+        setState(() {
+          _response = response;
+          _statusMessage = widget.mode == ProcessingMode.share
+              ? 'Ready to share!'
+              : 'Opening in ${musicService?.name ?? "music app"}...';
+          _isLoading = false;
+        });
+
+        // Short delay for UI
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (mounted) {
+          if (widget.mode == ProcessingMode.share) {
+            await _shareToMessenger();
+          } else {
+            await _openInMusicApp();
+          }
+        }
+        return;
+      }
+
+      // No cache - fetch from API
       if (!mounted) return;
       setState(() => _statusMessage = 'Converting link...');
 
@@ -64,7 +141,6 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
       if (!mounted) return;
 
       if (response == null) {
-        // User-friendly error message without exposing API details
         setState(() {
           _error =
               'Unable to process this music link. Please check your internet connection and try again.';
@@ -73,38 +149,46 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
         return;
       }
 
+      // Cache the response
+      await _cacheResponse(response, musicService);
+
       // Get preferred messenger BEFORE setState to decide on flow
       final messenger = ref.read(preferredMessengerProvider);
-      final hasPreferredMessenger =
-          messenger != null && messenger != MessengerService.systemShare;
 
-      // For share mode with preferred messenger: skip UI update and share directly
-      if (widget.mode == ProcessingMode.share && hasPreferredMessenger) {
+      // For share mode: ALWAYS share directly, never show UI
+      if (widget.mode == ProcessingMode.share) {
         debugPrint(
-          '=== Fast SHARE mode: Direct to messenger (${messenger.name}) ===',
+          '=== SHARE mode: Direct share (${messenger?.name ?? "system"}) ===',
         );
-        setState(() {
-          _response = response;
-          _statusMessage = 'Sharing...';
-          _isLoading = false;
-        });
-        // No delay - share immediately
-        if (mounted) {
-          await _shareToMessenger();
-        }
+        // Keep loading state and share directly - NO UI shown
+        _response = response;
+        await _shareToMessenger();
         return;
+      }
+
+      // For open mode: check if music app is installed
+      if (widget.mode == ProcessingMode.open) {
+        final isInstalled = await _isMusicAppInstalled(musicService);
+        if (isInstalled) {
+          debugPrint(
+            '=== Fast OPEN mode: Direct to music app (${musicService?.name ?? "default"}) ===',
+          );
+          // Keep loading state and open directly - NO UI shown
+          _response = response;
+          await _openInMusicApp();
+          return;
+        }
       }
 
       setState(() {
         _response = response;
-        // Update status based on mode
         _statusMessage = widget.mode == ProcessingMode.share
             ? 'Ready to share!'
-            : 'Opening in ${ref.read(preferredMusicServiceProvider)?.name ?? "music app"}...';
+            : 'Opening in ${musicService?.name ?? "music app"}...';
         _isLoading = false;
       });
 
-      // Short delay only for system share or open mode (allows UI to render)
+      // Short delay only for system share or open mode
       await Future.delayed(const Duration(milliseconds: 300));
       if (mounted) {
         if (widget.mode == ProcessingMode.share) {
@@ -120,14 +204,74 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
         }
       }
     } catch (e) {
-      // Log error locally for debugging (not sent externally)
       debugPrint('=== ProcessingScreen Error: $e ===');
       if (!mounted) return;
       setState(() {
-        // User-friendly error message without exposing internal details
         _error = 'Something went wrong. Please try again.';
         _isLoading = false;
       });
+    }
+  }
+
+  /// Cache the API response
+  Future<void> _cacheResponse(
+    UnituneResponse response,
+    MusicService? musicService,
+  ) async {
+    try {
+      final convertedLinks = <String, String>{};
+      response.linksByPlatform.forEach((key, value) {
+        convertedLinks[key] = value.url;
+      });
+
+      final cached = CachedLink(
+        originalUrl: widget.incomingLink,
+        musicService: musicService?.name ?? 'any',
+        convertedLinks: convertedLinks,
+        title: response.title,
+        artist: response.artistName,
+        thumbnailUrl: response.thumbnailUrl,
+        cachedAt: DateTime.now(),
+      );
+
+      await ref.read(linkCacheRepositoryProvider).save(cached);
+    } catch (e) {
+      debugPrint('Error caching response: $e');
+    }
+  }
+
+  /// Check if a music app is installed
+  Future<bool> _isMusicAppInstalled(MusicService? musicService) async {
+    if (musicService == null) return true; // Will use original link
+
+    String urlScheme;
+    switch (musicService) {
+      case MusicService.spotify:
+        urlScheme = 'spotify://';
+        break;
+      case MusicService.appleMusic:
+        urlScheme = 'music://';
+        break;
+      case MusicService.tidal:
+        urlScheme = 'tidal://';
+        break;
+      case MusicService.youtubeMusic:
+        urlScheme = 'youtubemusic://';
+        break;
+      case MusicService.deezer:
+        urlScheme = 'deezer://';
+        break;
+      case MusicService.amazonMusic:
+        urlScheme = 'amznmp3://';
+        break;
+    }
+
+    try {
+      final uri = Uri.parse(urlScheme);
+      return await canLaunchUrl(uri);
+    } catch (e) {
+      debugPrint('Error checking music app availability: $e');
+      return false;
     }
   }
 
@@ -161,7 +305,6 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
         break;
       case MessengerService.systemShare:
       case null:
-        // Will use system share
         launchUrlString = null;
         break;
     }
@@ -169,22 +312,60 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     if (launchUrlString != null) {
       final uri = Uri.parse(launchUrlString);
       if (await canLaunchUrl(uri)) {
+        HapticFeedback.mediumImpact();
         await launchUrl(uri, mode: LaunchMode.externalApplication);
 
         // Save to history
         await _saveToHistory(HistoryType.shared, shareLink);
+
+        // Invalidate statistics providers to refresh chart
+        ref.invalidate(sharedHistoryProvider);
 
         // Close the processing screen after launching
         if (mounted) {
           Navigator.of(context).pop();
         }
         return;
+      } else {
+        // App not installed - fallback to system share
+        debugPrint('=== Messenger app not installed, using system share ===');
       }
     }
 
-    // Fallback: show manual share options
+    // Fallback: use system share (no intermediate screen)
     if (mounted) {
-      _showShareSheet();
+      HapticFeedback.mediumImpact();
+      // Save to history before sharing
+      await _saveToHistory(HistoryType.shared, shareLink);
+
+      // Invalidate statistics providers to refresh chart
+      ref.invalidate(sharedHistoryProvider);
+
+      // Use system share - AWAIT the async function
+      await _showSystemShare(message);
+    }
+  }
+
+  /// Show system share dialog
+  Future<void> _showSystemShare(String message) async {
+    try {
+      debugPrint('=== Opening system share dialog ===');
+
+      // Use share_plus to trigger native OS share dialog
+      // IMPORTANT: Don't close the screen before sharing
+      final result = await Share.share(
+        message,
+        subject: 'Check out this song on UniTune',
+      );
+
+      debugPrint('Share result: ${result.status}');
+    } catch (e) {
+      debugPrint('Error showing system share: $e');
+    } finally {
+      // Close processing screen after share dialog is dismissed
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
     }
   }
 
@@ -198,19 +379,31 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     debugPrint('Preferred service: ${musicService?.name ?? "none"}');
     debugPrint('Original link: ${widget.incomingLink}');
 
-    // If no preference set, show error or ask user (for now, use system default via browser)
+    // If no preference set, open original link
     if (musicService == null) {
-      // Just open the original link if no service preferred
       debugPrint(
         'No preference set, opening original link: ${widget.incomingLink}',
       );
       final uri = Uri.parse(widget.incomingLink);
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
 
-      // Save to history as received
-      await _saveToHistory(HistoryType.received, null);
+      // Check if app is available
+      final canOpen = await canLaunchUrl(uri);
+      if (canOpen) {
+        HapticFeedback.mediumImpact();
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        await _saveToHistory(HistoryType.received, null);
 
-      if (mounted) Navigator.of(context).pop();
+        // Invalidate statistics providers to refresh chart
+        ref.invalidate(receivedHistoryProvider);
+
+        if (mounted) Navigator.of(context).pop();
+      } else {
+        if (mounted) {
+          setState(() {
+            _error = 'Cannot open this link. Please install the music app.';
+          });
+        }
+      }
       return;
     }
 
@@ -221,14 +414,29 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
 
     if (targetUrl != null) {
       final uri = Uri.parse(targetUrl);
-      // Launch in external app (Spotify, Tidal, etc.)
-      debugPrint('Launching URL: $targetUrl');
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
 
-      // Save to history as received
-      await _saveToHistory(HistoryType.received, null);
+      // Check if the music app is installed
+      final canOpen = await canLaunchUrl(uri);
+      if (canOpen) {
+        HapticFeedback.mediumImpact();
+        debugPrint('Launching URL: $targetUrl');
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        await _saveToHistory(HistoryType.received, null);
 
-      if (mounted) Navigator.of(context).pop();
+        // Invalidate statistics providers to refresh chart
+        ref.invalidate(receivedHistoryProvider);
+
+        if (mounted) Navigator.of(context).pop();
+      } else {
+        // App not installed - show error
+        debugPrint('ERROR: ${musicService.name} app not installed');
+        if (mounted) {
+          setState(() {
+            _error =
+                '${musicService.name} is not installed. Please install it or change your preferred music service in settings.';
+          });
+        }
+      }
     } else {
       // Service link not found for this song
       debugPrint('ERROR: Song not available on ${musicService.name}');
@@ -290,20 +498,6 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     return UniTuneLinkEncoder.createShareLinkFromUrl(widget.incomingLink);
   }
 
-  void _showShareSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.colors.backgroundCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => _ShareOptionsSheet(
-        response: _response!,
-        shareLink: _generateShareLink(_response!),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -353,13 +547,37 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Animated Liquid Glass sphere
-        LiquidGlassSphere(
-          size: 140,
-          child: Text(
-            '♪',
-            style: TextStyle(fontSize: 64, color: AppTheme.colors.textPrimary),
-          ),
+        // Animated UniTune Logo with pulsing effect
+        TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.9, end: 1.1),
+          duration: const Duration(milliseconds: 1000),
+          curve: Curves.easeInOut,
+          builder: (context, scale, child) {
+            return Transform.scale(
+              scale: scale,
+              child: Container(
+                width: 140,
+                height: 140,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: context.primaryColor.withValues(alpha: 0.4),
+                      blurRadius: 30,
+                      spreadRadius: 5,
+                    ),
+                  ],
+                ),
+                child: UniTuneLogo(size: 140, showText: false),
+              ),
+            );
+          },
+          onEnd: () {
+            // Loop the animation
+            if (mounted && _isLoading) {
+              setState(() {});
+            }
+          },
         ),
         SizedBox(height: AppTheme.spacing.xl),
         Text(
@@ -400,7 +618,8 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
                 ? Image.network(
                     response.thumbnailUrl!,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _buildPlaceholderArt(),
+                    errorBuilder: (context, error, stackTrace) =>
+                        _buildPlaceholderArt(),
                   )
                 : _buildPlaceholderArt(),
           ),
@@ -431,27 +650,22 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
           PrimaryButton(
             label:
                 'Share via ${ref.read(preferredMessengerProvider)?.name ?? "Messenger"}',
-            onPressed: _shareToMessenger,
+            onPressed: () {
+              HapticFeedback.mediumImpact();
+              _shareToMessenger();
+            },
             icon: Icons.send,
           )
         else
           PrimaryButton(
             label:
                 'Open in ${ref.read(preferredMusicServiceProvider)?.name ?? "Music App"}',
-            onPressed: _openInMusicApp,
+            onPressed: () {
+              HapticFeedback.mediumImpact();
+              _openInMusicApp();
+            },
             icon: Icons.music_note,
           ),
-        SizedBox(height: AppTheme.spacing.m),
-        // Alternative action
-        TextButton(
-          onPressed: _showShareSheet,
-          child: Text(
-            'More options',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: context.primaryColor),
-          ),
-        ),
       ],
     );
   }
@@ -482,121 +696,6 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
           child: const Text('Close'),
         ),
       ],
-    );
-  }
-}
-
-/// Bottom sheet with share options for different messengers
-class _ShareOptionsSheet extends StatelessWidget {
-  final UnituneResponse response;
-  final String shareLink;
-
-  const _ShareOptionsSheet({required this.response, required this.shareLink});
-
-  @override
-  Widget build(BuildContext context) {
-    final songInfo = response.title != null && response.artistName != null
-        ? '${response.title} by ${response.artistName}'
-        : 'Check out this song';
-    final message = '$songInfo\n$shareLink';
-
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Handle
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppTheme.colors.textMuted,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text('Share to...', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 24),
-          // Messenger options
-          Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: MessengerService.values
-                .where((m) => m != MessengerService.systemShare)
-                .map(
-                  (messenger) =>
-                      _ShareOption(messenger: messenger, message: message),
-                )
-                .toList(),
-          ),
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-}
-
-class _ShareOption extends StatelessWidget {
-  final MessengerService messenger;
-  final String message;
-
-  const _ShareOption({required this.messenger, required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () async {
-        final encodedMessage = Uri.encodeComponent(message);
-        String launchUrlString;
-
-        switch (messenger) {
-          case MessengerService.whatsapp:
-            launchUrlString = 'whatsapp://send?text=$encodedMessage';
-            break;
-          case MessengerService.telegram:
-            launchUrlString = 'tg://msg?text=$encodedMessage';
-            break;
-          case MessengerService.signal:
-            launchUrlString = 'sgnl://send?text=$encodedMessage';
-            break;
-          case MessengerService.sms:
-            launchUrlString = 'sms:?body=$encodedMessage';
-            break;
-          case MessengerService.systemShare:
-            return;
-        }
-
-        final uri = Uri.parse(launchUrlString);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-          if (context.mounted) {
-            Navigator.of(context).pop();
-          }
-        }
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: Color(messenger.color).withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Center(
-              child: Text(messenger.icon, style: const TextStyle(fontSize: 28)),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            messenger.name,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppTheme.colors.textSecondary,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
