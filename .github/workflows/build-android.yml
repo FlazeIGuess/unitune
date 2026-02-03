@@ -32,7 +32,7 @@ jobs:
       run: flutter pub get
       
     - name: Analyze code
-      run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      run: flutter analyze --no-fatal-infos --no-fatal-warnings --no-fatal-warnings
       
     - name: Build APK
       run: flutter build apk --release
