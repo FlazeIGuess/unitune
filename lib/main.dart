@@ -363,19 +363,8 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
               ProcessingMode.open,
             );
           } else if (_isMusicLink(link)) {
-            // Check if Music Link Interception is enabled
-            final interceptEnabled = ref.read(interceptMusicLinksProvider);
-
-            if (interceptEnabled) {
-              // Music link interception is ON - this link came via deep link
-              // Skip it here, let _handleDeepLink handle it
-              debugPrint(
-                'Skipping music link in share intent (will be handled by deep link): $link',
-              );
-              return;
-            }
-
-            // Music link interception is OFF - this is a real share from music app
+            // Music link - always process as SHARE mode
+            // (User wants to share this song to someone else)
             debugPrint(
               'SHARE mode: Received music link via share intent: $link',
             );

@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.3.1] - 2026-02-03
+
+### Fixed
+- Share intent not processing music links when shared directly to UniTune
+- Music links shared to UniTune now always work regardless of interception settings
+- Removed overly complex interception logic that was blocking direct shares
+
+### Changed
+- Simplified share intent handling logic for better reliability
+- Music links shared to UniTune are always processed in SHARE mode
+- UniTune.art links shared to UniTune are processed in OPEN mode
+
 ## [1.3.0] - 2026-02-03
 
 ### Added
