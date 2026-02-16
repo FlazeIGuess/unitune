@@ -141,6 +141,11 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        
+        <!-- Google AdMob App ID -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-8547021258440704~3406297771"/>
     </application>
     
     <!-- Query for package visibility (check installed apps) -->

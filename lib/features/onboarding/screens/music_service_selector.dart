@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/dynamic_theme.dart';
 import '../../../core/widgets/liquid_glass_container.dart';
 import '../../../core/widgets/brand_logo.dart';
+import '../../../core/widgets/optimized_liquid_glass.dart';
 import '../../../core/constants/services.dart';
 import '../../settings/preferences_manager.dart';
 
@@ -52,6 +54,7 @@ class _MusicServiceSelectorState extends ConsumerState<MusicServiceSelector>
     _selectedService = ref
         .read(preferencesManagerProvider)
         .preferredMusicService;
+    _detectInstalledService();
   }
 
   @override
@@ -73,6 +76,38 @@ class _MusicServiceSelectorState extends ConsumerState<MusicServiceSelector>
     }
   }
 
+  Future<void> _detectInstalledService() async {
+    if (_selectedService != null) return;
+    for (final service in MusicService.values) {
+      final uri = _serviceUri(service);
+      if (uri == null) continue;
+      final canOpen = await canLaunchUrl(uri);
+      if (canOpen && mounted) {
+        setState(() {
+          _selectedService = service;
+        });
+        return;
+      }
+    }
+  }
+
+  Uri? _serviceUri(MusicService service) {
+    switch (service) {
+      case MusicService.spotify:
+        return Uri.parse('spotify://');
+      case MusicService.appleMusic:
+        return Uri.parse('music://');
+      case MusicService.tidal:
+        return Uri.parse('tidal://');
+      case MusicService.youtubeMusic:
+        return Uri.parse('youtubemusic://');
+      case MusicService.deezer:
+        return Uri.parse('deezer://');
+      case MusicService.amazonMusic:
+        return Uri.parse('amznmp3://');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -86,7 +121,7 @@ class _MusicServiceSelectorState extends ConsumerState<MusicServiceSelector>
             ),
           ),
           // Glass layer for all glass elements
-          LiquidGlassLayer(
+          OptimizedLiquidGlassLayer(
             settings: AppTheme.liquidGlassDefault,
             child: SafeArea(
               child: FadeTransition(
@@ -284,6 +319,7 @@ class _MusicServiceSelectorState extends ConsumerState<MusicServiceSelector>
                     fontWeight: isSelected
                         ? FontWeight.bold
                         : FontWeight.normal,
+                    fontFamily: 'ZalandoSansExpanded',
                   ),
                 ),
               ),

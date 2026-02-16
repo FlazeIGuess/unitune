@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/constants/services.dart';
@@ -10,8 +10,12 @@ import '../../core/theme/dynamic_theme.dart';
 import '../../core/theme/dynamic_color_provider.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/unitune_logo.dart';
+import '../../core/widgets/banner_ad_widget.dart';
+import '../../core/widgets/service_button.dart';
+import '../../core/widgets/optimized_liquid_glass.dart';
 import '../../core/utils/link_encoder.dart';
 import '../../data/models/history_entry.dart';
+import '../../data/models/music_content_type.dart';
 import '../../data/repositories/unitune_repository.dart';
 import '../../data/repositories/link_cache_repository.dart';
 import '../../main.dart' show ProcessingMode;
@@ -44,6 +48,9 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
   @override
   void initState() {
     super.initState();
+    debugPrint('=== ProcessingScreen.initState() called ===');
+    debugPrint('Incoming link: ${widget.incomingLink}');
+    debugPrint('Mode: ${widget.mode}');
     _processLink();
   }
 
@@ -80,6 +87,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
           artistName: cached.artist,
           thumbnailUrl: cached.thumbnailUrl,
           linksByPlatform: linksByPlatform,
+          contentType: cached.contentType,
         );
 
         if (!mounted) return;
@@ -278,6 +286,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
         convertedLinks: convertedLinks,
         title: response.title,
         artist: response.artistName,
+        contentType: response.contentType,
         thumbnailUrl: response.thumbnailUrl,
         cachedAt: DateTime.now(),
       );
@@ -363,11 +372,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     final shareLink = _generateShareLink(response);
     debugPrint('=== Share link: $shareLink ===');
 
-    final songInfo = response.title != null && response.artistName != null
-        ? '${response.title} by ${response.artistName}'
-        : 'Check out this song';
-
-    final message = '$songInfo\n$shareLink';
+    final message = _buildShareMessage(response, shareLink);
     final encodedMessage = Uri.encodeComponent(message);
 
     String? launchUrlString;
@@ -414,9 +419,13 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
           }
 
           // Close the processing screen after launching
-          debugPrint('=== Popping navigation ===');
+          debugPrint('=== Scheduling navigation pop ===');
           if (mounted) {
-            Navigator.of(context).pop();
+            SchedulerBinding.instance.addPostFrameCallback((_) {
+              if (mounted && Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              }
+            });
           }
           debugPrint('=== _shareToMessenger END (messenger launched) ===');
           return;
@@ -445,13 +454,16 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
       }
 
       // Use system share - AWAIT the async function
-      await _showSystemShare(message);
+      await _showSystemShare(message, response);
     }
     debugPrint('=== _shareToMessenger END ===');
   }
 
   /// Show system share dialog
-  Future<void> _showSystemShare(String message) async {
+  Future<void> _showSystemShare(
+    String message,
+    UnituneResponse response,
+  ) async {
     try {
       debugPrint('=== Opening system share dialog ===');
 
@@ -459,7 +471,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
       // IMPORTANT: Don't close the screen before sharing
       final result = await Share.share(
         message,
-        subject: 'Check out this song on UniTune',
+        subject: 'Check out this ${_contentLabel(response)} on UniTune',
       );
 
       debugPrint('Share result: ${result.status}');
@@ -468,7 +480,11 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     } finally {
       // Close processing screen after share dialog is dismissed
       if (mounted) {
-        Navigator.of(context).pop();
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          if (mounted && Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+        });
       }
     }
   }
@@ -511,8 +527,10 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
         if (canOpen) {
           HapticFeedback.mediumImpact();
           debugPrint('=== Launching URL ===');
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-          debugPrint('=== URL launched, saving to history ===');
+
+          // CRITICAL FIX: Save to history BEFORE launching URL
+          // This ensures history is saved even if widget gets disposed during launch
+          debugPrint('=== Saving to history BEFORE launch ===');
           await _saveToHistory(HistoryType.received, null);
           debugPrint('=== History saved ===');
 
@@ -523,9 +541,19 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
             debugPrint('Cannot invalidate provider (widget disposed)');
           }
 
-          debugPrint('=== Popping navigation ===');
-          if (mounted) Navigator.of(context).pop();
-          debugPrint('=== Navigation popped ===');
+          // Launch URL - this may cause the widget to be disposed
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          debugPrint('=== URL launched ===');
+
+          // Pop navigation only if still mounted
+          debugPrint('=== Scheduling navigation pop ===');
+          if (mounted) {
+            SchedulerBinding.instance.addPostFrameCallback((_) {
+              if (mounted && Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              }
+            });
+          }
         } else {
           debugPrint('=== Cannot launch URL, showing error ===');
           if (mounted) {
@@ -563,8 +591,9 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
         if (canOpen) {
           HapticFeedback.mediumImpact();
           debugPrint('Launching URL: $targetUrl');
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-          debugPrint('=== URL launched, saving to history ===');
+
+          // CRITICAL FIX: Save to history BEFORE launching URL
+          debugPrint('=== Saving to history BEFORE launch ===');
           await _saveToHistory(HistoryType.received, null);
           debugPrint('=== History saved ===');
 
@@ -575,30 +604,39 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
             debugPrint('Cannot invalidate provider (widget disposed)');
           }
 
-          debugPrint('=== Popping navigation ===');
-          if (mounted) Navigator.of(context).pop();
-          debugPrint('=== Navigation popped ===');
+          // Launch URL - this may cause the widget to be disposed
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          debugPrint('=== URL launched ===');
+
+          // Pop navigation only if still mounted
+          debugPrint('=== Scheduling navigation pop ===');
+          if (mounted) {
+            SchedulerBinding.instance.addPostFrameCallback((_) {
+              if (mounted && Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              }
+            });
+          }
         } else {
           // App not installed - show error
-          debugPrint(
-            'ERROR: ${musicService?.name ?? "Music app"} not installed',
-          );
+          final serviceName = musicService.name;
+          debugPrint('ERROR: $serviceName not installed');
           if (mounted) {
             setState(() {
               _error =
-                  '${musicService?.name ?? "Music app"} is not installed. Please install it or change your preferred music service in settings.';
+                  '$serviceName is not installed. Please install it or change your preferred music service in settings.';
             });
           }
         }
       } else {
         // Service link not found for this song
+        final serviceName = musicService.name;
         debugPrint(
-          'ERROR: Song not available on ${musicService?.name ?? "preferred service"}',
+          'ERROR: ${_contentLabel(response)} not available on $serviceName',
         );
         if (mounted) {
           setState(() {
-            _error =
-                'Song not available on ${musicService?.name ?? "preferred service"}';
+            _error = '${_contentLabel(response)} not available on $serviceName';
           });
         }
       }
@@ -621,12 +659,13 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     try {
       final entry = HistoryEntry(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        title: response.title ?? 'Unknown Song',
-        artist: response.artistName ?? 'Unknown Artist',
+        title: _displayTitle(response),
+        artist: _displaySubtitle(response),
         thumbnailUrl: response.thumbnailUrl,
         originalUrl: widget.incomingLink,
         uniTuneUrl: uniTuneUrl,
         type: type,
+        contentType: response.contentType,
         timestamp: DateTime.now(),
       );
 
@@ -685,7 +724,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
             ),
           ),
           // Glass layer for all glass elements
-          LiquidGlassLayer(
+          OptimizedLiquidGlassLayer(
             settings: AppTheme.liquidGlassDefault,
             child: SafeArea(
               child: Padding(
@@ -698,7 +737,11 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
                       child: IconButton(
                         icon: const Icon(Icons.close),
                         color: AppTheme.colors.textSecondary,
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () {
+                          if (Navigator.of(context).canPop()) {
+                            Navigator.of(context).pop();
+                          }
+                        },
                       ),
                     ),
                     const Spacer(),
@@ -713,6 +756,19 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
               ),
             ),
           ),
+          // Banner Ad at bottom (only during loading)
+          if (_isLoading)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.all(AppTheme.spacing.m),
+                  child: const BannerAdWidget(),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -759,6 +815,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
           _statusMessage,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
             color: AppTheme.colors.textSecondary,
+            fontFamily: 'ZalandoSansExpanded',
           ),
           textAlign: TextAlign.center,
         ),
@@ -802,7 +859,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
         SizedBox(height: AppTheme.spacing.xl),
         // Song title
         Text(
-          response.title ?? 'Unknown Song',
+          _displayTitle(response),
           style: Theme.of(context).textTheme.headlineMedium,
           textAlign: TextAlign.center,
           maxLines: 2,
@@ -810,15 +867,16 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
         ),
         SizedBox(height: AppTheme.spacing.s),
         // Artist
-        Text(
-          response.artistName ?? 'Unknown Artist',
-          style: Theme.of(
-            context,
-          ).textTheme.bodyLarge?.copyWith(color: AppTheme.colors.textSecondary),
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
+        if (_displaySubtitle(response).isNotEmpty)
+          Text(
+            _displaySubtitle(response),
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: AppTheme.colors.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         SizedBox(height: AppTheme.spacing.xl),
         // Primary action button
         if (widget.mode == ProcessingMode.share)
@@ -845,6 +903,61 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     );
   }
 
+  String _displayTitle(UnituneResponse response) {
+    switch (response.contentType) {
+      case MusicContentType.album:
+        return response.albumTitle ?? response.title ?? 'Unknown Album';
+      case MusicContentType.artist:
+        return response.artistName ?? response.title ?? 'Unknown Artist';
+      case MusicContentType.track:
+        return response.title ?? 'Unknown Song';
+      case MusicContentType.playlist:
+        return response.title ?? 'Unknown Playlist';
+      case MusicContentType.unknown:
+        return response.title ?? 'Unknown';
+    }
+  }
+
+  String _displaySubtitle(UnituneResponse response) {
+    switch (response.contentType) {
+      case MusicContentType.artist:
+        return 'Artist';
+      case MusicContentType.album:
+      case MusicContentType.track:
+        return response.artistName ?? 'Unknown Artist';
+      case MusicContentType.playlist:
+        return response.artistName ?? '';
+      case MusicContentType.unknown:
+        return response.artistName ?? '';
+    }
+  }
+
+  String _contentLabel(UnituneResponse response) {
+    switch (response.contentType) {
+      case MusicContentType.album:
+        return 'album';
+      case MusicContentType.artist:
+        return 'artist';
+      case MusicContentType.track:
+        return 'song';
+      case MusicContentType.playlist:
+        return 'playlist';
+      case MusicContentType.unknown:
+        return 'music';
+    }
+  }
+
+  String _buildShareMessage(UnituneResponse response, String shareLink) {
+    final title = _displayTitle(response);
+    final subtitle = _displaySubtitle(response);
+    final headline = response.contentType == MusicContentType.artist
+        ? 'Artist: $title'
+        : subtitle.isNotEmpty
+        ? '$title by $subtitle'
+        : title;
+    return '$headline\n$shareLink';
+  }
+
   Widget _buildPlaceholderArt() {
     return Container(
       color: AppTheme.colors.backgroundCard,
@@ -853,6 +966,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
   }
 
   Widget _buildErrorState() {
+    final response = _response;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -862,15 +976,158 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
           _error ?? 'Something went wrong',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
             color: AppTheme.colors.textSecondary,
+            fontFamily: 'ZalandoSansExpanded',
           ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 32),
-        ElevatedButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
+        const SizedBox(height: 24),
+        PrimaryButton(
+          label: 'Open in Browser',
+          onPressed: () => _openInBrowser(widget.incomingLink),
+          icon: Icons.open_in_new,
+        ),
+        const SizedBox(height: 8),
+        InlineGlassButton(
+          label: 'Copy Link',
+          onPressed: _copyLinkToClipboard,
+          icon: Icons.copy,
+        ),
+        if (response != null && response.linksByPlatform.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          Text(
+            'Try another service',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: AppTheme.colors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ..._buildAvailableServiceButtons(response),
+        ],
+        const SizedBox(height: 16),
+        InlineGlassButton(
+          label: 'Close',
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
+          },
+          color: AppTheme.colors.textMuted,
         ),
       ],
     );
+  }
+
+  List<Widget> _buildAvailableServiceButtons(UnituneResponse response) {
+    final buttons = <Widget>[];
+    response.linksByPlatform.forEach((key, value) {
+      final button = _buildPlatformButton(key, value.url);
+      if (button != null) {
+        buttons.add(button);
+        buttons.add(const SizedBox(height: 10));
+      }
+    });
+    if (buttons.isNotEmpty) {
+      buttons.removeLast();
+    }
+    return buttons;
+  }
+
+  Widget? _buildPlatformButton(String platformKey, String url) {
+    switch (platformKey) {
+      case 'spotify':
+        return ServiceButton(
+          serviceName: 'Spotify',
+          icon: Icons.music_note,
+          accentColor: AppTheme.colors.spotify,
+          onTap: () => _openUrl(url),
+          actionLabel: 'Open',
+        );
+      case 'appleMusic':
+        return ServiceButton(
+          serviceName: 'Apple Music',
+          icon: Icons.music_note,
+          accentColor: AppTheme.colors.appleMusic,
+          onTap: () => _openUrl(url),
+          actionLabel: 'Open',
+        );
+      case 'tidal':
+        return ServiceButton(
+          serviceName: 'Tidal',
+          icon: Icons.music_note,
+          accentColor: AppTheme.colors.tidal,
+          onTap: () => _openUrl(url),
+          actionLabel: 'Open',
+        );
+      case 'youtubeMusic':
+        return ServiceButton(
+          serviceName: 'YouTube Music',
+          icon: Icons.play_arrow,
+          accentColor: AppTheme.colors.youtubeMusic,
+          onTap: () => _openUrl(url),
+          actionLabel: 'Open',
+        );
+      case 'deezer':
+        return ServiceButton(
+          serviceName: 'Deezer',
+          icon: Icons.music_note,
+          accentColor: AppTheme.colors.primaryLight,
+          onTap: () => _openUrl(url),
+          actionLabel: 'Open',
+        );
+      case 'amazonMusic':
+        return ServiceButton(
+          serviceName: 'Amazon Music',
+          icon: Icons.music_note,
+          accentColor: AppTheme.colors.accentWarning,
+          onTap: () => _openUrl(url),
+          actionLabel: 'Open',
+        );
+      default:
+        return null;
+    }
+  }
+
+  Future<void> _openUrl(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Cannot open this link'),
+            backgroundColor: AppTheme.colors.accentError,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Failed to open link'),
+            backgroundColor: AppTheme.colors.accentError,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _openInBrowser(String link) async {
+    await _openUrl(link);
+  }
+
+  Future<void> _copyLinkToClipboard() async {
+    await Clipboard.setData(ClipboardData(text: widget.incomingLink));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Link copied to clipboard'),
+          backgroundColor: AppTheme.colors.backgroundCard,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 }

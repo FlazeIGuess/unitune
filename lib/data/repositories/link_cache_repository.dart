@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/services.dart';
+import '../models/music_content_type.dart';
 
 /// Cache entry for a converted music link
 class CachedLink {
@@ -10,6 +11,7 @@ class CachedLink {
   final Map<String, String> convertedLinks;
   final String? title;
   final String? artist;
+  final MusicContentType contentType;
   final String? thumbnailUrl;
   final DateTime cachedAt;
 
@@ -19,6 +21,7 @@ class CachedLink {
     required this.convertedLinks,
     this.title,
     this.artist,
+    this.contentType = MusicContentType.track,
     this.thumbnailUrl,
     required this.cachedAt,
   });
@@ -30,6 +33,10 @@ class CachedLink {
       convertedLinks: Map<String, String>.from(json['convertedLinks'] as Map),
       title: json['title'] as String?,
       artist: json['artist'] as String?,
+      contentType: MusicContentType.values.firstWhere(
+        (e) => e.name == json['contentType'],
+        orElse: () => MusicContentType.track,
+      ),
       thumbnailUrl: json['thumbnailUrl'] as String?,
       cachedAt: DateTime.parse(json['cachedAt'] as String),
     );
@@ -42,6 +49,7 @@ class CachedLink {
       'convertedLinks': convertedLinks,
       'title': title,
       'artist': artist,
+      'contentType': contentType.name,
       'thumbnailUrl': thumbnailUrl,
       'cachedAt': cachedAt.toIso8601String(),
     };

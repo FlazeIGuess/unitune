@@ -119,6 +119,9 @@ class ApiConstants {
   static const String unituneApiBaseUrl =
       'https://api.unitune.art/v1-alpha.1/links';
 
+  static const String unitunePlaylistBaseUrl =
+      'https://api.unitune.art/v1/playlists';
+
   /// UniTune link base
   static const String unituneLinkBase = 'https://unitune.art';
 }

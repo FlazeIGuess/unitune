@@ -8,18 +8,28 @@ import 'package:app_links/app_links.dart';
 import 'package:flutter_sharing_intent/flutter_sharing_intent.dart';
 import 'package:flutter_sharing_intent/model/sharing_file.dart' show SharedFile;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/theme/dynamic_theme.dart';
 import 'core/theme/dynamic_color_provider.dart';
 import 'core/security/url_validator.dart';
 import 'core/utils/link_encoder.dart';
+import 'core/ads/ad_helper.dart';
+import 'core/widgets/primary_button.dart';
 import 'features/onboarding/screens/welcome_screen.dart';
 import 'features/onboarding/screens/music_service_selector.dart';
 import 'features/onboarding/screens/messenger_selector.dart';
 import 'features/settings/preferences_manager.dart';
 import 'features/main_shell.dart';
 import 'features/sharing/processing_screen.dart';
+import 'features/playlists/screens/playlist_creator_screen.dart';
+import 'features/playlists/screens/playlist_detail_screen.dart';
+import 'features/playlists/screens/playlist_qr_screen.dart';
+import 'features/playlists/screens/playlist_import_screen.dart';
+import 'features/playlists/screens/playlist_post_create_screen.dart';
+import 'features/playlists/state/playlist_creation_state.dart';
 
 /// Provider for incoming shared link
 final incomingLinkProvider = StateProvider<String?>((ref) => null);
@@ -35,6 +45,11 @@ enum ProcessingMode {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await LiquidGlassWidgets.initialize();
+
+  if (AdHelper.adsEnabled) {
+    await MobileAds.instance.initialize();
+  }
 
   // Initialize SharedPreferences
   final prefs = await SharedPreferences.getInstance();
@@ -63,13 +78,48 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
   StreamSubscription<List<SharedFile>>? _sharingSub;
 
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  String? _pendingLink;
+  String? _lastHandledLink;
+  DateTime? _lastHandledAt;
+  int _pendingAttempts = 0;
+
+  // CRITICAL: GoRouter must be created ONCE, not on every build().
+  // Creating it in build() causes navigation state to reset on every rebuild,
+  // which breaks deep link / share intent handling.
+  late final GoRouter _router;
 
   @override
   void initState() {
     super.initState();
+    _router = _createRouter();
     _initDeepLinks();
     _initShareIntent();
     _syncDynamicColorFromHistory();
+  }
+
+  bool _shouldSkipDuplicate(String link) {
+    if (_lastHandledLink == null || _lastHandledAt == null) {
+      debugPrint('=== Duplicate check: No previous link, allowing ===');
+      return false;
+    }
+    final isSame = _lastHandledLink == link;
+    final isRecent = DateTime.now().difference(_lastHandledAt!).inSeconds < 3;
+    final shouldSkip = isSame && isRecent;
+
+    debugPrint('=== Duplicate check ===');
+    debugPrint('Current link: $link');
+    debugPrint('Last handled: $_lastHandledLink');
+    debugPrint('Same link: $isSame');
+    debugPrint('Recent (< 3s): $isRecent');
+    debugPrint('Should skip: $shouldSkip');
+
+    return shouldSkip;
+  }
+
+  void _markHandled(String link) {
+    debugPrint('=== Marking link as handled: $link ===');
+    _lastHandledLink = link;
+    _lastHandledAt = DateTime.now();
   }
 
   /// Sync app colors from the topmost shared history entry
@@ -129,6 +179,15 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
       final artist = uri.queryParameters['artist'];
       final source = uri.queryParameters['source'];
 
+      final playlistId = uri.queryParameters['id'];
+      if (uri.host == 'playlist' &&
+          playlistId != null &&
+          playlistId.isNotEmpty) {
+        debugPrint('DeepLink.playlist scheme id=$playlistId');
+        _navigateToPlaylistImport(playlistId);
+        return;
+      }
+
       if (musicUrl != null && musicUrl.isNotEmpty) {
         debugPrint(
           'OPEN mode: Extracted music URL from unitune:// scheme: $musicUrl',
@@ -148,7 +207,7 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
           try {
             // If the URL is a unitune.art link, extract the actual music URL
             if (musicUrl.contains('unitune')) {
-              urlToOpen = _extractActualMusicUrl(musicUrl);
+              urlToOpen = _extractMusicUrlFromUnituneLink(musicUrl);
             }
           } catch (e) {
             debugPrint('Error extracting URL, using original: $e');
@@ -167,7 +226,7 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
         // For non-web sources, do full validation
         // IMPORTANT: Check if the URL itself is a unitune.art link
         // If yes, extract the actual music URL from it
-        final actualMusicUrl = _extractActualMusicUrl(musicUrl);
+        final actualMusicUrl = _extractMusicUrlFromUnituneLink(musicUrl);
 
         // Validate the URL before processing
         final validationResult = UrlValidator.validateAndSanitize(
@@ -200,10 +259,23 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
         }
 
         // No metadata and not from web - need to call API via ProcessingScreen
+        if (_shouldSkipDuplicate(validationResult.sanitizedUrl)) {
+          return;
+        }
+        _markHandled(validationResult.sanitizedUrl);
         _navigateToProcessing(
           validationResult.sanitizedUrl,
           ProcessingMode.open,
         );
+        return;
+      }
+    }
+
+    if (uri.host.contains('unitune') && uri.path.startsWith('/p/')) {
+      final playlistId = uri.path.replaceFirst('/p/', '');
+      if (playlistId.isNotEmpty) {
+        debugPrint('DeepLink.playlist https id=$playlistId');
+        _navigateToPlaylistImport(playlistId);
         return;
       }
     }
@@ -235,6 +307,13 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
           return;
         }
 
+        // CRITICAL FIX: Add duplicate check here too
+        if (_shouldSkipDuplicate(validationResult.sanitizedUrl)) {
+          debugPrint('=== Skipping duplicate deep link ===');
+          return;
+        }
+        _markHandled(validationResult.sanitizedUrl);
+
         _navigateToProcessing(
           validationResult.sanitizedUrl,
           ProcessingMode.open,
@@ -265,24 +344,47 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
       }
 
       // OPEN mode: Get link for preferred service and open
+      if (_shouldSkipDuplicate(validationResult.sanitizedUrl)) {
+        return;
+      }
+      _markHandled(validationResult.sanitizedUrl);
       _navigateToProcessing(validationResult.sanitizedUrl, ProcessingMode.open);
     }
   }
 
-  /// Extracts the actual music URL from a possibly nested unitune.art link
-  /// Example: "https://unitune.art/s/https%3A%2F%2Ftidal.com%2F..." -> "https://tidal.com/..."
-  String _extractActualMusicUrl(String url) {
+  void _navigateToPlaylistImport(String playlistId) {
+    debugPrint('DeepLink.navigate playlist import id=$playlistId');
+    _router.go('/playlists/import?id=$playlistId');
+  }
+
+  /// Extracts the actual music URL from a UniTune share link
+  /// Supports Base64 share links and legacy encoded URLs.
+  String _extractMusicUrlFromUnituneLink(String url) {
     try {
       final uri = Uri.parse(url);
 
+      if (uri.scheme == 'unitune') {
+        final nestedUrl = uri.queryParameters['url'];
+        if (nestedUrl != null && nestedUrl.isNotEmpty) {
+          return _extractMusicUrlFromUnituneLink(nestedUrl);
+        }
+      }
+
       // Check if it's a unitune.art link
       if (uri.host.contains('unitune') && uri.path.startsWith('/s/')) {
-        final encodedUrl = uri.path.replaceFirst('/s/', '');
-        final decodedUrl = Uri.decodeComponent(encodedUrl);
-        debugPrint('Extracted nested unitune.art link: $decodedUrl');
+        final encodedPath = uri.path.replaceFirst('/s/', '');
+        final decodedUrl = UniTuneLinkEncoder.decodeShareLinkPath(encodedPath);
+        if (decodedUrl != null && decodedUrl.isNotEmpty) {
+          debugPrint('Decoded unitune.art share link: $decodedUrl');
+          return decodedUrl;
+        }
 
-        // Recursively check if nested multiple times
-        return _extractActualMusicUrl(decodedUrl);
+        final legacyDecoded = Uri.decodeComponent(encodedPath);
+        debugPrint('Decoded legacy unitune.art link: $legacyDecoded');
+        if (legacyDecoded.contains('unitune')) {
+          return _extractMusicUrlFromUnituneLink(legacyDecoded);
+        }
+        return legacyDecoded;
       }
 
       // Not a unitune.art URL, return original
@@ -338,7 +440,20 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
             debugPrint(
               'OPEN mode: Received unitune.art link via share intent: $link',
             );
-            final actualMusicUrl = _extractActualMusicUrl(link);
+            if (link.contains('/p/')) {
+              try {
+                final uri = Uri.parse(link);
+                final playlistId = uri.path.replaceFirst('/p/', '');
+                if (playlistId.isNotEmpty) {
+                  _navigateToPlaylistImport(playlistId);
+                  return;
+                }
+              } catch (_) {
+                _showErrorDialog('Invalid playlist link');
+                return;
+              }
+            }
+            final actualMusicUrl = _extractMusicUrlFromUnituneLink(link);
 
             // Validate the URL before processing
             final validationResult = UrlValidator.validateAndSanitize(
@@ -358,6 +473,10 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
               return;
             }
 
+            if (_shouldSkipDuplicate(validationResult.sanitizedUrl)) {
+              return;
+            }
+            _markHandled(validationResult.sanitizedUrl);
             _navigateToProcessing(
               validationResult.sanitizedUrl,
               ProcessingMode.open,
@@ -385,6 +504,19 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
               return;
             }
 
+            if (ref.read(playlistCreationActiveProvider)) {
+              debugPrint(
+                'PlaylistCreator.active received link: ${validationResult.sanitizedUrl}',
+              );
+              ref.read(playlistIncomingLinkProvider.notifier).state =
+                  validationResult.sanitizedUrl;
+              return;
+            }
+
+            if (_shouldSkipDuplicate(validationResult.sanitizedUrl)) {
+              return;
+            }
+            _markHandled(validationResult.sanitizedUrl);
             _navigateToProcessing(
               validationResult.sanitizedUrl,
               ProcessingMode.share,
@@ -446,25 +578,50 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
   }
 
   void _navigateToProcessing(String link, ProcessingMode mode) {
+    debugPrint('=== _navigateToProcessing called ===');
+    debugPrint('Link: $link');
+    debugPrint('Mode: $mode');
+
     ref.read(incomingLinkProvider.notifier).state = link;
 
-    // Navigate to processing screen with the appropriate mode
-    // Using custom page route with fade and slide transition (300-400ms, ease-in-out)
-    _navigatorKey.currentState?.push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            ProcessingScreen(incomingLink: link, mode: mode),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return _fadeSlideTransition(
-            context,
-            animation,
-            secondaryAnimation,
-            child,
-          );
-        },
-        transitionDuration: const Duration(milliseconds: 350), // 300-400ms
-      ),
+    final modeParam = mode == ProcessingMode.open ? 'open' : 'share';
+    final target = '/process?link=${Uri.encodeComponent(link)}&mode=$modeParam';
+
+    debugPrint('Target route: $target');
+
+    _pendingLink = link;
+    _pendingAttempts = 0;
+    _tryNavigatePending(target);
+  }
+
+  void _tryNavigatePending(String target) {
+    debugPrint(
+      '=== _tryNavigatePending called (attempt $_pendingAttempts) ===',
     );
+
+    if (_pendingLink == null) {
+      debugPrint('Pending link is null, aborting navigation');
+      return;
+    }
+
+    // ALWAYS use addPostFrameCallback to ensure navigation happens AFTER
+    // the current frame is complete. This is critical when the app resumes
+    // from background: the intent arrives during the resume rebuild, and
+    // calling go() immediately gets lost because the framework is still
+    // rebuilding the widget tree / recreating the Surface.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_pendingLink == null) {
+        debugPrint('Pending link cleared before post-frame callback');
+        return;
+      }
+
+      // Use _router.go() directly instead of GoRouter.of(context).go()
+      // to avoid context lookup issues during app resume lifecycle.
+      debugPrint('Using _router.go() to navigate (post-frame): $target');
+      _router.go(target);
+      _pendingLink = null;
+      _pendingAttempts = 0;
+    });
   }
 
   /// Opens music directly in preferred app without API call
@@ -499,9 +656,9 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
         title: const Text('Invalid URL'),
         content: Text(message),
         actions: [
-          TextButton(
+          InlineGlassButton(
+            label: 'OK',
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
           ),
         ],
       ),
@@ -512,15 +669,18 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
   void dispose() {
     _linkSub?.cancel();
     _sharingSub?.cancel();
+    _router.dispose();
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final isOnboardingComplete = ref.watch(isOnboardingCompleteProvider);
+  /// Creates the GoRouter ONCE. Must not be called in build().
+  GoRouter _createRouter() {
+    final isOnboardingComplete = ref.read(isOnboardingCompleteProvider);
 
-    final router = GoRouter(
+    return GoRouter(
       navigatorKey: _navigatorKey,
+      debugLogDiagnostics: true,
+      observers: [_RouteLogger()],
       initialLocation: isOnboardingComplete ? '/home' : '/onboarding/welcome',
       routes: [
         // Onboarding flow
@@ -532,7 +692,7 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
               onContinue: () => context.go('/onboarding/music'),
             ),
             transitionsBuilder: _fadeSlideTransition,
-            transitionDuration: const Duration(milliseconds: 350), // 300-400ms
+            transitionDuration: const Duration(milliseconds: 350),
           ),
         ),
         GoRoute(
@@ -543,7 +703,7 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
               onContinue: () => context.go('/onboarding/messenger'),
             ),
             transitionsBuilder: _slideTransition,
-            transitionDuration: const Duration(milliseconds: 350), // 300-400ms
+            transitionDuration: const Duration(milliseconds: 350),
           ),
         ),
         GoRoute(
@@ -561,7 +721,7 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
               },
             ),
             transitionsBuilder: _slideTransition,
-            transitionDuration: const Duration(milliseconds: 350), // 300-400ms
+            transitionDuration: const Duration(milliseconds: 350),
           ),
         ),
         // Main app
@@ -571,24 +731,105 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
             key: state.pageKey,
             child: const MainShell(),
             transitionsBuilder: _fadeSlideTransition,
-            transitionDuration: const Duration(milliseconds: 350), // 300-400ms
+            transitionDuration: const Duration(milliseconds: 350),
           ),
         ),
         // Processing screen (for share intents)
         GoRoute(
           path: '/process',
           pageBuilder: (context, state) {
-            final link = state.uri.queryParameters['link'] ?? '';
+            debugPrint('=== GoRoute /process pageBuilder called ===');
+            debugPrint('Query parameters: ${state.uri.queryParameters}');
+
+            final linkParam = state.uri.queryParameters['link'] ?? '';
+            final link = Uri.decodeComponent(linkParam);
+            final modeParam =
+                state.uri.queryParameters['mode']?.toLowerCase() ?? 'share';
+            final mode = modeParam == 'open'
+                ? ProcessingMode.open
+                : ProcessingMode.share;
+
+            debugPrint('Decoded link: $link');
+            debugPrint('Mode: $mode');
+
             return CustomTransitionPage(
               key: state.pageKey,
-              child: ProcessingScreen(
-                incomingLink: link,
-                mode: ProcessingMode.share,
-              ),
+              child: ProcessingScreen(incomingLink: link, mode: mode),
               transitionsBuilder: _fadeSlideTransition,
-              transitionDuration: const Duration(
-                milliseconds: 350,
-              ), // 300-400ms
+              transitionDuration: const Duration(milliseconds: 350),
+            );
+          },
+        ),
+        // Playlist routes
+        GoRoute(
+          path: '/playlists/create',
+          pageBuilder: (context, state) {
+            debugPrint('=== GoRoute /playlists/create pageBuilder called ===');
+            return CustomTransitionPage(
+              key: state.pageKey,
+              child: const PlaylistCreatorScreen(),
+              transitionsBuilder: _fadeSlideTransition,
+              transitionDuration: const Duration(milliseconds: 350),
+            );
+          },
+        ),
+        GoRoute(
+          path: '/playlists/:id/created',
+          pageBuilder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return CustomTransitionPage(
+              key: state.pageKey,
+              child: PlaylistPostCreateScreen(playlistId: id),
+              transitionsBuilder: _fadeSlideTransition,
+              transitionDuration: const Duration(milliseconds: 350),
+            );
+          },
+        ),
+        GoRoute(
+          path: '/playlists/import',
+          pageBuilder: (context, state) {
+            final id = state.uri.queryParameters['id'];
+            debugPrint(
+              '=== GoRoute /playlists/import pageBuilder called id=$id ===',
+            );
+            if (id == null || id.isEmpty) {
+              return CustomTransitionPage(
+                key: state.pageKey,
+                child: const MainShell(),
+                transitionsBuilder: _fadeSlideTransition,
+                transitionDuration: const Duration(milliseconds: 350),
+              );
+            }
+            return CustomTransitionPage(
+              key: state.pageKey,
+              child: PlaylistImportScreen(playlistId: id),
+              transitionsBuilder: _fadeSlideTransition,
+              transitionDuration: const Duration(milliseconds: 350),
+            );
+          },
+        ),
+        GoRoute(
+          path: '/playlists/:id',
+          pageBuilder: (context, state) {
+            final id = state.pathParameters['id']!;
+            debugPrint('=== GoRoute /playlists/:id pageBuilder id=$id ===');
+            return CustomTransitionPage(
+              key: state.pageKey,
+              child: PlaylistDetailScreen(playlistId: id),
+              transitionsBuilder: _fadeSlideTransition,
+              transitionDuration: const Duration(milliseconds: 350),
+            );
+          },
+        ),
+        GoRoute(
+          path: '/playlists/:id/qr',
+          pageBuilder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return CustomTransitionPage(
+              key: state.pageKey,
+              child: PlaylistQRScreen(playlistId: id),
+              transitionsBuilder: _fadeSlideTransition,
+              transitionDuration: const Duration(milliseconds: 350),
             );
           },
         ),
@@ -596,20 +837,43 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
       // Handle deep links that don't match routes - redirect to home
       // (the actual deep link handling is done by app_links in _handleDeepLink)
       redirect: (context, state) {
+        debugPrint('GoRouter.redirect uri=${state.uri}');
         final uri = state.uri;
         // If it's a unitune:// deep link, redirect to home
         // The actual processing is handled by _handleDeepLink via app_links
         if (uri.scheme == 'unitune') {
+          debugPrint('GoRouter.redirect to /home for unitune scheme');
+          return '/home';
+        }
+        if ((uri.scheme == 'https' || uri.scheme == 'http') &&
+            uri.host.contains('unitune') &&
+            uri.path.startsWith('/p/')) {
+          final playlistId = uri.path.replaceFirst('/p/', '');
+          if (playlistId.isNotEmpty) {
+            debugPrint(
+              'GoRouter.redirect to /playlists/import for playlist link',
+            );
+            return '/playlists/import?id=$playlistId';
+          }
+        }
+        if ((uri.scheme == 'https' || uri.scheme == 'http') &&
+            uri.host.contains('unitune') &&
+            uri.path.startsWith('/s/')) {
+          debugPrint('GoRouter.redirect to /home for share link');
           return '/home';
         }
         return null;
       },
       errorBuilder: (context, state) {
+        debugPrint('GoRouter.error ${state.error}');
         // For any unhandled routes, go to home
         return const MainShell();
       },
     );
+  }
 
+  @override
+  Widget build(BuildContext context) {
     // Wrap with DynamicThemeBuilder to provide dynamic colors
     // Colors automatically update based on last shared song's album artwork
     return DynamicThemeBuilder(
@@ -617,7 +881,7 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
         title: 'UniTune',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme,
-        routerConfig: router,
+        routerConfig: _router,
       ),
     );
   }
@@ -670,6 +934,29 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
     return FadeTransition(
       opacity: fadeAnimation,
       child: SlideTransition(position: slideAnimation, child: child),
+    );
+  }
+}
+
+class _RouteLogger extends NavigatorObserver {
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    debugPrint(
+      'Route.didPush new=${route.settings.name ?? route.settings} prev=${previousRoute?.settings.name ?? previousRoute?.settings}',
+    );
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    debugPrint(
+      'Route.didPop popped=${route.settings.name ?? route.settings} prev=${previousRoute?.settings.name ?? previousRoute?.settings}',
+    );
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    debugPrint(
+      'Route.didReplace new=${newRoute?.settings.name ?? newRoute?.settings} old=${oldRoute?.settings.name ?? oldRoute?.settings}',
     );
   }
 }

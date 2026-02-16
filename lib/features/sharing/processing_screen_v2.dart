@@ -7,6 +7,7 @@ import '../../core/widgets/album_art_with_glow.dart';
 import '../../core/widgets/service_button.dart';
 import '../../core/utils/motion_sensitivity.dart';
 import '../../core/utils/link_encoder.dart';
+import '../../data/models/music_content_type.dart';
 import '../../data/repositories/unitune_repository.dart';
 import '../../main.dart' show ProcessingMode;
 import '../settings/preferences_manager.dart';
@@ -122,11 +123,7 @@ class _ProcessingScreenV2State extends ConsumerState<ProcessingScreenV2>
     final messenger = ref.read(preferredMessengerProvider);
     final shareLink = _generateShareLink(response);
 
-    final songInfo = response.title != null && response.artistName != null
-        ? '${response.title} by ${response.artistName}'
-        : 'Check out this song';
-
-    final message = '$songInfo\n$shareLink';
+    final message = _buildShareMessage(response, shareLink);
     final encodedMessage = Uri.encodeComponent(message);
 
     String? launchUrlString;
@@ -183,7 +180,8 @@ class _ProcessingScreenV2State extends ConsumerState<ProcessingScreenV2>
     } else {
       if (mounted) {
         setState(() {
-          _error = 'Song not available on ${musicService.name}';
+          _error =
+              '${_contentLabel(response)} not available on ${musicService.name}';
         });
       }
     }
@@ -331,7 +329,7 @@ class _ProcessingScreenV2State extends ConsumerState<ProcessingScreenV2>
             children: [
               // Song title with display typography
               Text(
-                response.title ?? 'Unknown Song',
+                _displayTitle(response),
                 style: AppTheme.typography.displayMedium.copyWith(
                   color: AppTheme.colors.textPrimary,
                 ),
@@ -341,15 +339,16 @@ class _ProcessingScreenV2State extends ConsumerState<ProcessingScreenV2>
               ),
               SizedBox(height: AppTheme.spacing.s),
               // Artist name with title typography
-              Text(
-                response.artistName ?? 'Unknown Artist',
-                style: AppTheme.typography.titleLarge.copyWith(
-                  color: AppTheme.colors.textSecondary,
+              if (_displaySubtitle(response).isNotEmpty)
+                Text(
+                  _displaySubtitle(response),
+                  style: AppTheme.typography.titleLarge.copyWith(
+                    color: AppTheme.colors.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
             ],
           ),
         ),
@@ -387,6 +386,61 @@ class _ProcessingScreenV2State extends ConsumerState<ProcessingScreenV2>
     return shouldAnimate
         ? FadeTransition(opacity: _fadeAnimation, child: content)
         : content;
+  }
+
+  String _displayTitle(UnituneResponse response) {
+    switch (response.contentType) {
+      case MusicContentType.album:
+        return response.albumTitle ?? response.title ?? 'Unknown Album';
+      case MusicContentType.artist:
+        return response.artistName ?? response.title ?? 'Unknown Artist';
+      case MusicContentType.track:
+        return response.title ?? 'Unknown Song';
+      case MusicContentType.playlist:
+        return response.title ?? 'Unknown Playlist';
+      case MusicContentType.unknown:
+        return response.title ?? 'Unknown';
+    }
+  }
+
+  String _displaySubtitle(UnituneResponse response) {
+    switch (response.contentType) {
+      case MusicContentType.artist:
+        return 'Artist';
+      case MusicContentType.album:
+      case MusicContentType.track:
+        return response.artistName ?? 'Unknown Artist';
+      case MusicContentType.playlist:
+        return response.artistName ?? '';
+      case MusicContentType.unknown:
+        return response.artistName ?? '';
+    }
+  }
+
+  String _contentLabel(UnituneResponse response) {
+    switch (response.contentType) {
+      case MusicContentType.album:
+        return 'album';
+      case MusicContentType.artist:
+        return 'artist';
+      case MusicContentType.track:
+        return 'song';
+      case MusicContentType.playlist:
+        return 'playlist';
+      case MusicContentType.unknown:
+        return 'music';
+    }
+  }
+
+  String _buildShareMessage(UnituneResponse response, String shareLink) {
+    final title = _displayTitle(response);
+    final subtitle = _displaySubtitle(response);
+    final headline = response.contentType == MusicContentType.artist
+        ? 'Artist: $title'
+        : subtitle.isNotEmpty
+        ? '$title by $subtitle'
+        : title;
+    return '$headline\n$shareLink';
   }
 
   Widget _buildServiceList(UnituneResponse response) {
@@ -490,6 +544,7 @@ class _ProcessingScreenV2State extends ConsumerState<ProcessingScreenV2>
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: Colors.white.withValues(alpha: 0.3),
             fontSize: 13,
+            fontFamily: 'ZalandoSansExpanded',
           ),
         ),
         Padding(
@@ -523,6 +578,7 @@ class _ServiceSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final message = _buildShareMessage(response, shareLink);
     return Container(
       decoration: BoxDecoration(
         gradient: AppTheme.backgroundGradient,
@@ -560,13 +616,7 @@ class _ServiceSheet extends StatelessWidget {
               runSpacing: 16,
               children: MessengerService.values
                   .where((m) => m != MessengerService.systemShare)
-                  .map(
-                    (m) => _ShareOption(
-                      messenger: m,
-                      message:
-                          '${response.title ?? "Check out this song"}\n$shareLink',
-                    ),
-                  )
+                  .map((m) => _ShareOption(messenger: m, message: message))
                   .toList(),
             ),
 
@@ -575,6 +625,46 @@ class _ServiceSheet extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _buildShareMessage(UnituneResponse response, String shareLink) {
+    final title = _displayTitle(response);
+    final subtitle = _displaySubtitle(response);
+    final headline = response.contentType == MusicContentType.artist
+        ? 'Artist: $title'
+        : subtitle.isNotEmpty
+        ? '$title by $subtitle'
+        : title;
+    return '$headline\\n$shareLink';
+  }
+
+  String _displayTitle(UnituneResponse response) {
+    switch (response.contentType) {
+      case MusicContentType.album:
+        return response.albumTitle ?? response.title ?? 'Unknown Album';
+      case MusicContentType.artist:
+        return response.artistName ?? response.title ?? 'Unknown Artist';
+      case MusicContentType.track:
+        return response.title ?? 'Unknown Song';
+      case MusicContentType.playlist:
+        return response.title ?? 'Unknown Playlist';
+      case MusicContentType.unknown:
+        return response.title ?? 'Unknown';
+    }
+  }
+
+  String _displaySubtitle(UnituneResponse response) {
+    switch (response.contentType) {
+      case MusicContentType.artist:
+        return 'Artist';
+      case MusicContentType.album:
+      case MusicContentType.track:
+        return response.artistName ?? 'Unknown Artist';
+      case MusicContentType.playlist:
+        return response.artistName ?? '';
+      case MusicContentType.unknown:
+        return response.artistName ?? '';
+    }
   }
 }
 

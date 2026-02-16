@@ -159,7 +159,8 @@ class UrlValidator {
   /// ```
   static UrlValidationResult validateAndSanitize(String url) {
     // First sanitize the URL
-    final sanitized = sanitizeUrl(url);
+    var sanitized = sanitizeUrl(url);
+    sanitized = _normalizeUrl(sanitized);
 
     // Check if it's safe (no dangerous protocols)
     if (!isSafeUrl(sanitized)) {
@@ -186,6 +187,15 @@ class UrlValidator {
       sanitizedUrl: sanitized,
       errorMessage: null,
     );
+  }
+
+  static String _normalizeUrl(String url) {
+    if (url.contains('://')) return url;
+    final candidate = 'https://$url';
+    if (isValidMusicUrl(candidate)) {
+      return candidate;
+    }
+    return url;
   }
 }
 

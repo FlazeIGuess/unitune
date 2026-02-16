@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../data/models/history_entry.dart';
+import '../../data/models/music_content_type.dart';
 import '../theme/app_theme.dart';
 import 'liquid_glass_container.dart';
 import 'album_art_with_glow.dart';
@@ -43,8 +44,7 @@ class HistoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label:
-          '${historyEntry.title} by ${historyEntry.artist}, ${_formatTimestamp(historyEntry.timestamp)}',
+      label: _semanticsLabel(historyEntry),
       hint: 'Tap to view details',
       child: GestureDetector(
         onTap: onTap != null
@@ -74,7 +74,7 @@ class HistoryCard extends StatelessWidget {
                   children: [
                     // Song title
                     Text(
-                      historyEntry.title,
+                      _displayTitle(historyEntry),
                       style: AppTheme.typography.titleMedium.copyWith(
                         color: AppTheme.colors.textPrimary,
                       ),
@@ -83,14 +83,15 @@ class HistoryCard extends StatelessWidget {
                     ),
                     SizedBox(height: AppTheme.spacing.xs / 2), // 4px
                     // Artist name
-                    Text(
-                      historyEntry.artist,
-                      style: AppTheme.typography.bodyMedium.copyWith(
-                        color: AppTheme.colors.textSecondary,
+                    if (_displaySubtitle(historyEntry).isNotEmpty)
+                      Text(
+                        _displaySubtitle(historyEntry),
+                        style: AppTheme.typography.bodyMedium.copyWith(
+                          color: AppTheme.colors.textSecondary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
                     SizedBox(height: AppTheme.spacing.xs / 2), // 4px
                     // Timestamp
                     Text(
@@ -114,6 +115,37 @@ class HistoryCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _displayTitle(HistoryEntry entry) {
+    switch (entry.contentType) {
+      case MusicContentType.album:
+      case MusicContentType.track:
+      case MusicContentType.playlist:
+      case MusicContentType.unknown:
+        return entry.title;
+      case MusicContentType.artist:
+        return entry.title.isNotEmpty ? entry.title : entry.artist;
+    }
+  }
+
+  String _displaySubtitle(HistoryEntry entry) {
+    switch (entry.contentType) {
+      case MusicContentType.artist:
+        return 'Artist';
+      case MusicContentType.album:
+      case MusicContentType.track:
+      case MusicContentType.playlist:
+      case MusicContentType.unknown:
+        return entry.artist;
+    }
+  }
+
+  String _semanticsLabel(HistoryEntry entry) {
+    final title = _displayTitle(entry);
+    final subtitle = _displaySubtitle(entry);
+    final headline = subtitle.isNotEmpty ? '$title, $subtitle' : title;
+    return '$headline, ${_formatTimestamp(entry.timestamp)}';
   }
 
   /// Format timestamp as relative time in English

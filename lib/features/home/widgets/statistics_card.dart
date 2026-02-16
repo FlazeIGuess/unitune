@@ -128,6 +128,7 @@ class _StatisticsCardState extends ConsumerState<StatisticsCard> {
             color: AppTheme.colors.textPrimary,
             fontWeight: FontWeight.w800,
             fontSize: 28,
+            fontFamily: 'ZalandoSansExpanded',
           ),
         ),
         SizedBox(height: AppTheme.spacing.m),

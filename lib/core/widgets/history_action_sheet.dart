@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
+import '../../data/models/music_content_type.dart';
 import '../theme/app_theme.dart';
 import '../theme/dynamic_theme.dart';
 
@@ -18,6 +19,7 @@ import '../theme/dynamic_theme.dart';
 class HistoryActionSheet extends StatelessWidget {
   final String title;
   final String artist;
+  final MusicContentType contentType;
   final String? thumbnailUrl;
   final VoidCallback onShare;
   final VoidCallback onOpen;
@@ -26,6 +28,7 @@ class HistoryActionSheet extends StatelessWidget {
     super.key,
     required this.title,
     required this.artist,
+    this.contentType = MusicContentType.track,
     this.thumbnailUrl,
     required this.onShare,
     required this.onOpen,
@@ -35,6 +38,7 @@ class HistoryActionSheet extends StatelessWidget {
     required BuildContext context,
     required String title,
     required String artist,
+    MusicContentType contentType = MusicContentType.track,
     String? thumbnailUrl,
     required VoidCallback onShare,
     required VoidCallback onOpen,
@@ -46,6 +50,7 @@ class HistoryActionSheet extends StatelessWidget {
       builder: (context) => HistoryActionSheet(
         title: title,
         artist: artist,
+        contentType: contentType,
         thumbnailUrl: thumbnailUrl,
         onShare: onShare,
         onOpen: onOpen,
@@ -116,6 +121,7 @@ class HistoryActionSheet extends StatelessWidget {
   }
 
   Widget _buildSongHeader(BuildContext context) {
+    final subtitle = _displaySubtitle();
     return Row(
       children: [
         // Thumbnail
@@ -145,7 +151,7 @@ class HistoryActionSheet extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                title,
+                _displayTitle(),
                 style: AppTheme.typography.titleMedium.copyWith(
                   color: AppTheme.colors.textPrimary,
                 ),
@@ -153,19 +159,44 @@ class HistoryActionSheet extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               SizedBox(height: 4),
-              Text(
-                artist,
-                style: AppTheme.typography.bodyMedium.copyWith(
-                  color: AppTheme.colors.textSecondary,
+              if (subtitle.isNotEmpty)
+                Text(
+                  subtitle,
+                  style: AppTheme.typography.bodyMedium.copyWith(
+                    color: AppTheme.colors.textSecondary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
             ],
           ),
         ),
       ],
     );
+  }
+
+  String _displayTitle() {
+    switch (contentType) {
+      case MusicContentType.artist:
+        return title.isNotEmpty ? title : artist;
+      case MusicContentType.album:
+      case MusicContentType.track:
+      case MusicContentType.playlist:
+      case MusicContentType.unknown:
+        return title;
+    }
+  }
+
+  String _displaySubtitle() {
+    switch (contentType) {
+      case MusicContentType.artist:
+        return 'Artist';
+      case MusicContentType.album:
+      case MusicContentType.track:
+      case MusicContentType.playlist:
+      case MusicContentType.unknown:
+        return artist;
+    }
   }
 
   Widget _buildPlaceholder() {

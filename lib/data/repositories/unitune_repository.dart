@@ -3,21 +3,26 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:http/http.dart' as http;
 import '../../core/constants/services.dart';
+import '../models/music_content_type.dart';
 
 /// UniTune API response model
 class UnituneResponse {
   final String? entityUniqueId;
   final String? title;
   final String? artistName;
+  final String? albumTitle;
   final String? thumbnailUrl;
   final Map<String, PlatformLink> linksByPlatform;
+  final MusicContentType contentType;
 
   UnituneResponse({
     this.entityUniqueId,
     this.title,
     this.artistName,
+    this.albumTitle,
     this.thumbnailUrl,
     required this.linksByPlatform,
+    this.contentType = MusicContentType.track,
   });
 
   factory UnituneResponse.fromJson(Map<String, dynamic> json) {
@@ -33,21 +38,50 @@ class UnituneResponse {
     // Extract metadata from entitiesByUniqueId
     String? title;
     String? artistName;
+    String? albumTitle;
     String? thumbnailUrl;
+    MusicContentType contentType = MusicContentType.track;
     final entities = json['entitiesByUniqueId'] as Map<String, dynamic>?;
     if (entities != null && entities.isNotEmpty) {
       final firstEntity = entities.values.first as Map<String, dynamic>;
-      title = firstEntity['title'] as String?;
-      artistName = firstEntity['artistName'] as String?;
-      thumbnailUrl = firstEntity['thumbnailUrl'] as String?;
+      final rawType =
+          firstEntity['type'] ??
+          firstEntity['entityType'] ??
+          firstEntity['kind'];
+      if (rawType != null) {
+        contentType = _mapContentType(rawType.toString());
+      }
+
+      title = (firstEntity['title'] as String?) ??
+          (firstEntity['name'] as String?);
+      artistName = (firstEntity['artistName'] as String?) ??
+          _extractArtistName(firstEntity);
+      albumTitle = (firstEntity['albumName'] as String?) ??
+          (firstEntity['collectionName'] as String?);
+      thumbnailUrl = (firstEntity['thumbnailUrl'] as String?) ??
+          (firstEntity['imageUrl'] as String?);
+
+      if (contentType == MusicContentType.artist &&
+          title == null &&
+          artistName != null) {
+        title = artistName;
+      }
+
+      if (contentType == MusicContentType.album &&
+          albumTitle == null &&
+          title != null) {
+        albumTitle = title;
+      }
     }
 
     return UnituneResponse(
       entityUniqueId: json['entityUniqueId'] as String?,
       title: title,
       artistName: artistName,
+      albumTitle: albumTitle,
       thumbnailUrl: thumbnailUrl,
       linksByPlatform: linksMap,
+      contentType: contentType,
     );
   }
 
@@ -72,6 +106,31 @@ class UnituneResponse {
       case MusicService.amazonMusic:
         return 'amazonMusic';
     }
+  }
+
+  static MusicContentType _mapContentType(String rawType) {
+    final normalized = rawType.toLowerCase();
+    if (normalized.contains('album')) return MusicContentType.album;
+    if (normalized.contains('artist')) return MusicContentType.artist;
+    if (normalized.contains('playlist')) return MusicContentType.playlist;
+    if (normalized.contains('song') || normalized.contains('track')) {
+      return MusicContentType.track;
+    }
+    return MusicContentType.unknown;
+  }
+
+  static String? _extractArtistName(Map<String, dynamic> entity) {
+    final artists = entity['artists'];
+    if (artists is List && artists.isNotEmpty) {
+      final first = artists.first;
+      if (first is Map && first['name'] is String) {
+        return first['name'] as String;
+      }
+      if (first is String) {
+        return first;
+      }
+    }
+    return null;
   }
 }
 

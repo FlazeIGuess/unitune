@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/dynamic_theme.dart';
 import '../../../core/widgets/liquid_glass_container.dart';
 import '../../../core/widgets/brand_logo.dart';
+import '../../../core/widgets/optimized_liquid_glass.dart';
 import '../../../core/constants/services.dart';
 import '../../settings/preferences_manager.dart';
 
@@ -51,6 +53,7 @@ class _MessengerSelectorState extends ConsumerState<MessengerSelector>
     _selectedMessenger = ref
         .read(preferencesManagerProvider)
         .preferredMessenger;
+    _detectInstalledMessenger();
   }
 
   @override
@@ -78,6 +81,47 @@ class _MessengerSelectorState extends ConsumerState<MessengerSelector>
     }
   }
 
+  Future<void> _detectInstalledMessenger() async {
+    if (_selectedMessenger != null) return;
+    final order = [
+      MessengerService.whatsapp,
+      MessengerService.telegram,
+      MessengerService.signal,
+      MessengerService.sms,
+    ];
+    for (final messenger in order) {
+      final uri = _messengerUri(messenger);
+      if (uri == null) continue;
+      final canOpen = await canLaunchUrl(uri);
+      if (canOpen && mounted) {
+        setState(() {
+          _selectedMessenger = messenger;
+        });
+        return;
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _selectedMessenger = MessengerService.systemShare;
+      });
+    }
+  }
+
+  Uri? _messengerUri(MessengerService messenger) {
+    switch (messenger) {
+      case MessengerService.whatsapp:
+        return Uri.parse('whatsapp://');
+      case MessengerService.telegram:
+        return Uri.parse('tg://');
+      case MessengerService.signal:
+        return Uri.parse('sgnl://');
+      case MessengerService.sms:
+        return Uri.parse('sms:');
+      case MessengerService.systemShare:
+        return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -91,7 +135,7 @@ class _MessengerSelectorState extends ConsumerState<MessengerSelector>
             ),
           ),
           // Glass layer for all glass elements
-          LiquidGlassLayer(
+          OptimizedLiquidGlassLayer(
             settings: AppTheme.liquidGlassDefault,
             child: SafeArea(
               child: FadeTransition(
@@ -287,6 +331,7 @@ class _MessengerSelectorState extends ConsumerState<MessengerSelector>
                     fontWeight: isSelected
                         ? FontWeight.bold
                         : FontWeight.normal,
+                    fontFamily: 'ZalandoSansExpanded',
                   ),
                 ),
               ),

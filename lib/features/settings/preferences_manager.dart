@@ -12,6 +12,8 @@ class PrefsKeys {
   static const String messenger = 'preferred_messenger';
   static const String onboardingComplete = 'onboarding_complete';
   static const String interceptMusicLinks = 'intercept_music_links';
+  static const String playlistShareTipDismissed =
+      'playlist_share_tip_dismissed';
 }
 
 /// Manages local preferences (100% local, no cloud sync)
@@ -64,6 +66,14 @@ class PreferencesManager {
 
   Future<void> setInterceptMusicLinks(bool value) async {
     await _prefs.setBool(PrefsKeys.interceptMusicLinks, value);
+  }
+
+  bool get isPlaylistShareTipDismissed {
+    return _prefs.getBool(PrefsKeys.playlistShareTipDismissed) ?? false;
+  }
+
+  Future<void> setPlaylistShareTipDismissed(bool value) async {
+    await _prefs.setBool(PrefsKeys.playlistShareTipDismissed, value);
   }
 
   // === CLEAR ALL (for testing/reset) ===

@@ -42,7 +42,8 @@ class UniTuneLogo extends StatelessWidget {
             'assets/icon/app_icon.svg',
             width: size,
             height: size,
-            fit: BoxFit.contain, // Changed to contain to ensure full icon is visible
+            fit: BoxFit
+                .contain, // Changed to contain to ensure full icon is visible
             colorFilter: ColorFilter.mode(
               context.primaryColor,
               BlendMode.srcIn,
@@ -71,6 +72,7 @@ class UniTuneLogo extends StatelessWidget {
                 AppTheme.typography.titleLarge.copyWith(
                   color: context.primaryColor,
                   fontWeight: FontWeight.w700,
+                  fontFamily: 'ZalandoSansExpanded',
                 ),
           ),
         ],

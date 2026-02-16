@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/dynamic_theme.dart';
+import '../../../core/widgets/optimized_liquid_glass.dart';
 import '../widgets/onboarding_slide.dart';
 import '../widgets/onboarding_illustrations.dart';
 
@@ -63,7 +64,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
             ),
           ),
           // Glass layer for all glass elements
-          LiquidGlassLayer(
+          OptimizedLiquidGlassLayer(
             settings: AppTheme.liquidGlassDefault,
             child: SafeArea(
               child: FadeTransition(

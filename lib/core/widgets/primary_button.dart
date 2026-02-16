@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import '../theme/app_theme.dart';
 import '../theme/dynamic_theme.dart';
-import '../utils/motion_sensitivity.dart';
 
 /// PrimaryButton - Large CTA button with Liquid Glass design and scale animation
 ///
@@ -22,7 +21,7 @@ import '../utils/motion_sensitivity.dart';
 /// - 6.3: Pill-shaped buttons (100px border radius) for primary actions
 /// - 6.5: Button state changes animated with 200-300ms duration
 /// - 20.2: Standardized button component
-class PrimaryButton extends StatefulWidget {
+class PrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback onPressed;
   final bool isLoading;
@@ -37,138 +36,50 @@ class PrimaryButton extends StatefulWidget {
   });
 
   @override
-  State<PrimaryButton> createState() => _PrimaryButtonState();
-}
-
-class _PrimaryButtonState extends State<PrimaryButton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    // Animation duration: 250ms (within 200-300ms requirement)
-    // Note: Duration will be adjusted at runtime based on reduce-motion setting
-    _controller = AnimationController(
-      duration: AppTheme.animation.durationNormal,
-      vsync: this,
-    );
-    // Scale from 1.0 to 0.96 for subtle press effect
-    // Note: Scale will be adjusted at runtime based on reduce-motion setting
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.96).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: AppTheme.animation.curveStandard,
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    // Adjust animation duration based on reduce-motion setting
-    final adjustedDuration = MotionSensitivity.getDuration(
-      context,
-      AppTheme.animation.durationNormal,
-    );
-    _controller.duration = adjustedDuration;
-
-    // Adjust scale based on reduce-motion setting
-    final adjustedScale = MotionSensitivity.getScale(context, 0.96);
-    _scaleAnimation = Tween<double>(begin: 1.0, end: adjustedScale).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: AppTheme.animation.curveStandard,
-      ),
-    );
-
+    final primaryColor = context.primaryColor;
     return Semantics(
       button: true,
-      enabled: !widget.isLoading,
-      label: widget.isLoading ? '${widget.label}, loading' : widget.label,
-      child: GestureDetector(
-        onTapDown: widget.isLoading ? null : (_) => _controller.forward(),
-        onTapUp: widget.isLoading
-            ? null
-            : (_) {
-                _controller.reverse();
-                HapticFeedback.lightImpact();
-                widget.onPressed();
-              },
-        onTapCancel: () => _controller.reverse(),
-        child: ScaleTransition(
-          scale: _scaleAnimation,
-          child: SizedBox(
-            height: 56,
-            child: LiquidGlass.withOwnLayer(
-              settings: AppTheme.liquidGlassButton,
-              shape: LiquidRoundedSuperellipse(
-                borderRadius: AppTheme.radii.pill,
-              ),
-              child: Builder(
-                builder: (context) {
-                  // Get dynamic colors from context
-                  final dynamicTheme = DynamicTheme.of(context);
-                  return Container(
-                    decoration: BoxDecoration(
-                      gradient: dynamicTheme.primaryGradient,
-                      borderRadius: BorderRadius.circular(AppTheme.radii.pill),
-                      border: Border.all(
-                        color: dynamicTheme.primary.withValues(alpha: 0.4),
-                        width: 1.5,
+      enabled: !isLoading,
+      label: isLoading ? '$label, loading' : label,
+      child: GlassButton.custom(
+        onTap: () {
+          if (isLoading) return;
+          HapticFeedback.lightImpact();
+          onPressed();
+        },
+        width: double.infinity,
+        height: 56,
+        enabled: !isLoading,
+        useOwnLayer: true,
+        shape: LiquidRoundedSuperellipse(borderRadius: AppTheme.radii.pill),
+        child: Center(
+          child: isLoading
+              ? SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(
+                      primaryColor,
+                    ),
+                  ),
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (icon != null) ...[
+                      Icon(icon, color: primaryColor, size: 20),
+                      SizedBox(width: AppTheme.spacing.s),
+                    ],
+                    Text(
+                      label,
+                      style: AppTheme.typography.labelLarge.copyWith(
+                        color: primaryColor,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: dynamicTheme.primary.withValues(alpha: 0.3),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
                     ),
-                    child: Center(
-                      child: widget.isLoading
-                          ? SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation(
-                                  AppTheme.colors.textPrimary,
-                                ),
-                              ),
-                            )
-                          : Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (widget.icon != null) ...[
-                                  Icon(
-                                    widget.icon,
-                                    color: AppTheme.colors.textPrimary,
-                                    size: 20,
-                                  ),
-                                  SizedBox(width: AppTheme.spacing.s),
-                                ],
-                                Text(
-                                  widget.label,
-                                  style: AppTheme.typography.labelLarge
-                                      .copyWith(
-                                        color: AppTheme.colors.textPrimary,
-                                      ),
-                                ),
-                              ],
-                            ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
+                  ],
+                ),
         ),
       ),
     );
@@ -196,45 +107,32 @@ class SecondaryButton extends StatelessWidget {
       button: true,
       enabled: onPressed != null,
       label: label,
-      child: GestureDetector(
-        onTap: onPressed != null
-            ? () {
-                HapticFeedback.lightImpact();
-                onPressed!();
-              }
-            : null,
-        child: SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: LiquidGlass.withOwnLayer(
-            settings: AppTheme.liquidGlassButton,
-            shape: LiquidRoundedSuperellipse(borderRadius: AppTheme.radii.pill),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppTheme.radii.pill),
-                border: Border.all(
-                  color: primaryColor.withValues(alpha: 0.4),
-                  width: 1.5,
+      child: GlassButton.custom(
+        onTap: () {
+          if (onPressed == null) return;
+          HapticFeedback.lightImpact();
+          onPressed!();
+        },
+        width: double.infinity,
+        height: 56,
+        enabled: onPressed != null,
+        useOwnLayer: true,
+        shape: LiquidRoundedSuperellipse(borderRadius: AppTheme.radii.pill),
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, color: primaryColor, size: 20),
+                SizedBox(width: AppTheme.spacing.s),
+              ],
+              Text(
+                label,
+                style: AppTheme.typography.labelLarge.copyWith(
+                  color: primaryColor,
                 ),
               ),
-              child: Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (icon != null) ...[
-                      Icon(icon, color: primaryColor, size: 20),
-                      SizedBox(width: AppTheme.spacing.s),
-                    ],
-                    Text(
-                      label,
-                      style: AppTheme.typography.labelLarge.copyWith(
-                        color: primaryColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            ],
           ),
         ),
       ),
@@ -256,7 +154,7 @@ class SecondaryButton extends StatelessWidget {
 /// - 6.1: Immediate visual feedback through scale animation
 /// - 6.5: Button state changes animated with 200-300ms duration
 /// - 20.2: Standardized button component
-class DangerButton extends StatefulWidget {
+class DangerButton extends StatelessWidget {
   final String label;
   final VoidCallback onPressed;
   final IconData? icon;
@@ -269,113 +167,97 @@ class DangerButton extends StatefulWidget {
   });
 
   @override
-  State<DangerButton> createState() => _DangerButtonState();
-}
-
-class _DangerButtonState extends State<DangerButton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: AppTheme.animation.durationFast,
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: AppTheme.animation.curveStandard,
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    // Adjust animation duration based on reduce-motion setting
-    final adjustedDuration = MotionSensitivity.getDuration(
-      context,
-      AppTheme.animation.durationFast,
-    );
-    _controller.duration = adjustedDuration;
-
-    // Adjust scale based on reduce-motion setting
-    final adjustedScale = MotionSensitivity.getScale(context, 0.95);
-    _scaleAnimation = Tween<double>(begin: 1.0, end: adjustedScale).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: AppTheme.animation.curveStandard,
-      ),
-    );
-
     return Semantics(
       button: true,
-      label: widget.label,
+      label: label,
       hint: 'Destructive action',
-      child: GestureDetector(
-        onTapDown: (_) => _controller.forward(),
-        onTapUp: (_) {
-          _controller.reverse();
+      child: GlassButton.custom(
+        onTap: () {
           HapticFeedback.lightImpact();
-          widget.onPressed();
+          onPressed();
         },
-        onTapCancel: () => _controller.reverse(),
-        child: ScaleTransition(
-          scale: _scaleAnimation,
-          child: LiquidGlass.withOwnLayer(
-            settings: AppTheme.liquidGlassButton,
-            shape: LiquidRoundedSuperellipse(borderRadius: 32),
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: AppTheme.spacing.m,
-                vertical: AppTheme.spacing.s,
-              ),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(32),
-                border: Border.all(
-                  color: AppTheme.colors.accentError.withValues(alpha: 0.3),
-                  width: 1.0,
+        width: _inlineWidth(label, icon != null),
+        height: 44,
+        useOwnLayer: true,
+        shape: const LiquidRoundedSuperellipse(borderRadius: 32),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: AppTheme.spacing.m,
+            vertical: AppTheme.spacing.s,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, color: AppTheme.colors.accentError, size: 18),
+                SizedBox(width: AppTheme.spacing.xs),
+              ],
+              Text(
+                label,
+                style: AppTheme.typography.labelMedium.copyWith(
+                  color: AppTheme.colors.accentError,
+                  fontWeight: FontWeight.w600,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.colors.accentError.withValues(alpha: 0.15),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (widget.icon != null) ...[
-                    Icon(
-                      widget.icon,
-                      color: AppTheme.colors.accentError,
-                      size: 18,
-                    ),
-                    SizedBox(width: AppTheme.spacing.xs),
-                  ],
-                  Text(
-                    widget.label,
-                    style: AppTheme.typography.labelMedium.copyWith(
-                      color: AppTheme.colors.accentError,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            ],
           ),
         ),
       ),
     );
   }
+}
+
+class InlineGlassButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onPressed;
+  final IconData? icon;
+  final Color? color;
+
+  const InlineGlassButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.icon,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = color ?? context.primaryColor;
+    return GlassButton.custom(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onPressed();
+      },
+      width: _inlineWidth(label, icon != null),
+      height: 40,
+      useOwnLayer: true,
+      shape: LiquidRoundedSuperellipse(borderRadius: AppTheme.radii.pill),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: AppTheme.spacing.m,
+          vertical: AppTheme.spacing.s,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, color: accent, size: 18),
+              SizedBox(width: AppTheme.spacing.xs),
+            ],
+            Text(
+              label,
+              style: AppTheme.typography.labelMedium.copyWith(color: accent),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+double _inlineWidth(String label, bool hasIcon) {
+  final base = (label.length * 8.5) + (hasIcon ? 26.0 : 0.0) + 36.0;
+  return base.clamp(100.0, 240.0);
 }

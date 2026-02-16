@@ -4,6 +4,7 @@ import '../core/widgets/liquid_glass_bottom_nav.dart';
 import '../core/animations/page_transitions.dart';
 import 'home/home_screen.dart';
 import 'history/history_screen.dart';
+import 'playlists/screens/playlists_list_screen.dart';
 import 'settings/settings_screen.dart';
 
 /// Provider for current navigation index
@@ -14,7 +15,8 @@ final mainShellIndexProvider = StateProvider<int>((ref) => 0);
 /// Contains:
 /// - HomeScreen (index 0)
 /// - HistoryScreen (index 1)
-/// - SettingsScreen (index 2)
+/// - PlaylistsListScreen (index 2)
+/// - SettingsScreen (index 3)
 /// - LiquidGlassBottomNav for navigation
 /// - Smooth page transitions with parallax effect
 class MainShell extends ConsumerStatefulWidget {
@@ -106,6 +108,11 @@ class _MainShellState extends ConsumerState<MainShell>
                   label: 'History',
                 ),
                 BottomNavItem(
+                  icon: Icons.queue_music_outlined,
+                  activeIcon: Icons.queue_music,
+                  label: 'Playlists',
+                ),
+                BottomNavItem(
                   icon: Icons.settings_outlined,
                   activeIcon: Icons.settings,
                   label: 'Settings',
@@ -125,7 +132,9 @@ class _MainShellState extends ConsumerState<MainShell>
       case 1:
         return const HistoryScreen(key: ValueKey(1));
       case 2:
-        return const SettingsScreen(key: ValueKey(2));
+        return const PlaylistsListScreen(key: ValueKey(2));
+      case 3:
+        return const SettingsScreen(key: ValueKey(3));
       default:
         return const HomeScreen(key: ValueKey(0));
     }

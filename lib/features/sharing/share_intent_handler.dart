@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/services.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/link_encoder.dart';
+import '../../data/models/music_content_type.dart';
 import '../../data/repositories/unitune_repository.dart';
 import '../settings/preferences_manager.dart';
 
@@ -104,11 +105,7 @@ class _ShareIntentHandlerState extends ConsumerState<ShareIntentHandler> {
     UnituneResponse response,
     MessengerService messenger,
   ) async {
-    final songInfo = response.title != null && response.artistName != null
-        ? '${response.title} by ${response.artistName}'
-        : 'Check out this song';
-
-    final message = '$songInfo\n$shareLink';
+    final message = _buildShareMessage(response, shareLink);
     final encodedMessage = Uri.encodeComponent(message);
 
     String targetUrl;
@@ -144,11 +141,7 @@ class _ShareIntentHandlerState extends ConsumerState<ShareIntentHandler> {
     String shareLink,
     UnituneResponse response,
   ) async {
-    final songInfo = response.title != null && response.artistName != null
-        ? '${response.title} by ${response.artistName}'
-        : 'Check out this song';
-
-    final message = '$songInfo\n$shareLink';
+    final message = _buildShareMessage(response, shareLink);
 
     // Use platform share
     // Note: For full implementation, use share_plus package
@@ -185,6 +178,46 @@ class _ShareIntentHandlerState extends ConsumerState<ShareIntentHandler> {
           _ProcessingOverlay(message: _processingMessage ?? 'Processing...'),
       ],
     );
+  }
+
+  String _displayTitle(UnituneResponse response) {
+    switch (response.contentType) {
+      case MusicContentType.album:
+        return response.albumTitle ?? response.title ?? 'Unknown Album';
+      case MusicContentType.artist:
+        return response.artistName ?? response.title ?? 'Unknown Artist';
+      case MusicContentType.track:
+        return response.title ?? 'Unknown Song';
+      case MusicContentType.playlist:
+        return response.title ?? 'Unknown Playlist';
+      case MusicContentType.unknown:
+        return response.title ?? 'Unknown';
+    }
+  }
+
+  String _displaySubtitle(UnituneResponse response) {
+    switch (response.contentType) {
+      case MusicContentType.artist:
+        return 'Artist';
+      case MusicContentType.album:
+      case MusicContentType.track:
+        return response.artistName ?? 'Unknown Artist';
+      case MusicContentType.playlist:
+        return response.artistName ?? '';
+      case MusicContentType.unknown:
+        return response.artistName ?? '';
+    }
+  }
+
+  String _buildShareMessage(UnituneResponse response, String shareLink) {
+    final title = _displayTitle(response);
+    final subtitle = _displaySubtitle(response);
+    final headline = response.contentType == MusicContentType.artist
+        ? 'Artist: $title'
+        : subtitle.isNotEmpty
+        ? '$title by $subtitle'
+        : title;
+    return '$headline\n$shareLink';
   }
 }
 
@@ -236,6 +269,7 @@ class _ProcessingOverlay extends StatelessWidget {
               message,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: AppTheme.colors.textSecondary,
+                fontFamily: 'ZalandoSansExpanded',
               ),
             ),
           ],

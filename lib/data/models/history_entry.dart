@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'music_content_type.dart';
 
 /// Type of history entry - shared or received
 enum HistoryType {
@@ -18,6 +19,7 @@ class HistoryEntry {
   final String originalUrl;
   final String? uniTuneUrl;
   final HistoryType type;
+  final MusicContentType contentType;
   final DateTime timestamp;
 
   const HistoryEntry({
@@ -28,6 +30,7 @@ class HistoryEntry {
     required this.originalUrl,
     this.uniTuneUrl,
     required this.type,
+    this.contentType = MusicContentType.track,
     required this.timestamp,
   });
 
@@ -44,6 +47,10 @@ class HistoryEntry {
         (e) => e.name == json['type'],
         orElse: () => HistoryType.shared,
       ),
+      contentType: MusicContentType.values.firstWhere(
+        (e) => e.name == json['contentType'],
+        orElse: () => MusicContentType.track,
+      ),
       timestamp: DateTime.parse(json['timestamp'] as String),
     );
   }
@@ -58,6 +65,7 @@ class HistoryEntry {
       'originalUrl': originalUrl,
       'uniTuneUrl': uniTuneUrl,
       'type': type.name,
+      'contentType': contentType.name,
       'timestamp': timestamp.toIso8601String(),
     };
   }
@@ -71,6 +79,7 @@ class HistoryEntry {
     String? originalUrl,
     String? uniTuneUrl,
     HistoryType? type,
+    MusicContentType? contentType,
     DateTime? timestamp,
   }) {
     return HistoryEntry(
@@ -81,13 +90,14 @@ class HistoryEntry {
       originalUrl: originalUrl ?? this.originalUrl,
       uniTuneUrl: uniTuneUrl ?? this.uniTuneUrl,
       type: type ?? this.type,
+      contentType: contentType ?? this.contentType,
       timestamp: timestamp ?? this.timestamp,
     );
   }
 
   @override
   String toString() {
-    return 'HistoryEntry(id: $id, title: $title, artist: $artist, type: $type)';
+    return 'HistoryEntry(id: $id, title: $title, artist: $artist, type: $type, contentType: $contentType)';
   }
 
   @override

@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/security/url_validator.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/dynamic_theme.dart';
 import '../../core/widgets/unitune_logo.dart';
 import '../../core/widgets/brand_logo.dart';
+import '../../core/widgets/glass_input_field.dart';
+import '../../core/widgets/primary_button.dart';
+import '../../core/widgets/optimized_liquid_glass.dart';
 import '../../core/utils/motion_sensitivity.dart';
 import '../../core/constants/services.dart';
 import '../settings/preferences_manager.dart';
@@ -27,6 +30,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
+  final TextEditingController _linkController = TextEditingController();
+  final FocusNode _linkFocusNode = FocusNode();
+  bool _isSharingLink = false;
+  bool _isLinkValid = false;
+  String? _validationMessage;
+  bool _showPasteHint = false;
+  String _lastValidatedText = '';
 
   @override
   void initState() {
@@ -40,11 +50,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       curve: AppTheme.animation.curveDecelerate,
     );
     _fadeController.forward();
+    _linkFocusNode.addListener(_handleLinkFocusChange);
   }
 
   @override
   void dispose() {
     _fadeController.dispose();
+    _linkController.dispose();
+    _linkFocusNode.dispose();
     super.dispose();
   }
 
@@ -63,7 +76,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
           // Glass layer - static, doesn't scroll
           const Positioned.fill(
-            child: LiquidGlassLayer(
+            child: OptimizedLiquidGlassLayer(
               settings: AppTheme.liquidGlassDefault,
               child: SizedBox.expand(),
             ),
@@ -127,6 +140,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             const StatisticsCard(),
             SizedBox(height: AppTheme.spacing.l),
 
+            _buildPasteToShareCard(context),
+            SizedBox(height: AppTheme.spacing.l),
+
             // Instructions Card
             Container(
               width: double.infinity, // Ensure full width
@@ -147,6 +163,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     'Share a song from any music app',
                     style: AppTheme.typography.titleMedium.copyWith(
                       color: AppTheme.colors.textPrimary,
+                      fontFamily: 'ZalandoSansExpanded',
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -174,6 +191,246 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
       ),
     );
+  }
+
+  Widget _buildPasteToShareCard(BuildContext context) {
+    final trimmed = _linkController.text.trim();
+    final hasInput = trimmed.isNotEmpty;
+    final statusColor = _isLinkValid
+        ? AppTheme.colors.accentSuccess
+        : AppTheme.colors.accentError;
+    final borderColor = hasInput ? statusColor.withValues(alpha: 0.5) : null;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(AppTheme.spacing.l),
+      decoration: BoxDecoration(
+        color: AppTheme.colors.glassBase,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.colors.glassBorder, width: 1.0),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Paste a music link',
+            style: AppTheme.typography.titleMedium.copyWith(
+              color: AppTheme.colors.textPrimary,
+              fontFamily: 'ZalandoSansExpanded',
+            ),
+          ),
+          SizedBox(height: AppTheme.spacing.s),
+          Text(
+            'Paste a Spotify, Apple Music, Tidal, YouTube Music, Deezer, or Amazon Music link.',
+            style: AppTheme.typography.bodyMedium.copyWith(
+              color: AppTheme.colors.textSecondary,
+            ),
+          ),
+          SizedBox(height: AppTheme.spacing.m),
+          GlassInputField(
+            placeholder: 'https://open.spotify.com/track/...',
+            controller: _linkController,
+            focusNode: _linkFocusNode,
+            borderColor: borderColor,
+            keyboardType: TextInputType.url,
+            onChanged: (value) {
+              if (_isSharingLink) return;
+              _updateValidation(value);
+            },
+          ),
+          AnimatedSwitcher(
+            duration: AppTheme.animation.durationFast,
+            child: _showPasteHint
+                ? Padding(
+                    padding: EdgeInsets.only(top: AppTheme.spacing.s),
+                    child: Row(
+                      key: const ValueKey('paste_hint'),
+                      children: [
+                        Icon(
+                          Icons.content_paste,
+                          size: 16,
+                          color: AppTheme.colors.textSecondary,
+                        ),
+                        SizedBox(width: AppTheme.spacing.s),
+                        Text(
+                          'Pasted from clipboard',
+                          style: AppTheme.typography.labelMedium.copyWith(
+                            color: AppTheme.colors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+          AnimatedSwitcher(
+            duration: AppTheme.animation.durationFast,
+            child: hasInput
+                ? Padding(
+                    padding: EdgeInsets.only(top: AppTheme.spacing.s),
+                    child: Row(
+                      key: ValueKey('validation_$_isLinkValid'),
+                      children: [
+                        Icon(
+                          _isLinkValid ? Icons.check_circle : Icons.error,
+                          size: 16,
+                          color: statusColor,
+                        ),
+                        SizedBox(width: AppTheme.spacing.s),
+                        Expanded(
+                          child: Text(
+                            _isLinkValid
+                                ? 'Valid link detected'
+                                : (_validationMessage ??
+                                      'Invalid or unsupported link'),
+                            style: AppTheme.typography.labelMedium.copyWith(
+                              color: statusColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+          SizedBox(height: AppTheme.spacing.m),
+          PrimaryButton(
+            label: 'Share Link',
+            isLoading: _isSharingLink,
+            onPressed: _isLinkValid
+                ? _handleShareLink
+                : _handleInvalidShareAttempt,
+            icon: Icons.send,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleLinkFocusChange() {
+    if (_linkFocusNode.hasFocus) {
+      _attemptSmartPaste();
+    }
+  }
+
+  Future<void> _attemptSmartPaste() async {
+    if (_linkController.text.trim().isNotEmpty) {
+      return;
+    }
+
+    final data = await Clipboard.getData('text/plain');
+    final clipboardText = data?.text?.trim();
+    if (clipboardText == null || clipboardText.isEmpty) {
+      return;
+    }
+
+    final validation = UrlValidator.validateAndSanitize(clipboardText);
+    if (!validation.isValid) {
+      return;
+    }
+
+    _linkController.text = validation.sanitizedUrl;
+    _linkController.selection = TextSelection.collapsed(
+      offset: _linkController.text.length,
+    );
+    _updateValidation(_linkController.text, triggerHaptic: false);
+    if (!mounted) return;
+    setState(() => _showPasteHint = true);
+    HapticFeedback.selectionClick();
+    await Future.delayed(const Duration(milliseconds: 1800));
+    if (!mounted) return;
+    setState(() => _showPasteHint = false);
+  }
+
+  void _updateValidation(String input, {bool triggerHaptic = true}) {
+    final trimmed = input.trim();
+    if (trimmed == _lastValidatedText) {
+      return;
+    }
+    _lastValidatedText = trimmed;
+
+    if (trimmed.isEmpty) {
+      setState(() {
+        _isLinkValid = false;
+        _validationMessage = null;
+      });
+      return;
+    }
+
+    final validation = UrlValidator.validateAndSanitize(trimmed);
+    final wasValid = _isLinkValid;
+    setState(() {
+      _isLinkValid = validation.isValid;
+      _validationMessage = validation.isValid
+          ? 'Valid link detected'
+          : (validation.errorMessage ?? 'Invalid or unsupported link');
+    });
+
+    if (validation.isValid && validation.sanitizedUrl != trimmed) {
+      final sanitized = validation.sanitizedUrl;
+      _linkController.value = _linkController.value.copyWith(
+        text: sanitized,
+        selection: TextSelection.collapsed(offset: sanitized.length),
+        composing: TextRange.empty,
+      );
+      _lastValidatedText = sanitized;
+    }
+
+    if (triggerHaptic && wasValid != _isLinkValid) {
+      if (_isLinkValid) {
+        HapticFeedback.selectionClick();
+      } else {
+        HapticFeedback.lightImpact();
+      }
+    }
+  }
+
+  void _handleInvalidShareAttempt() {
+    final input = _linkController.text.trim();
+    if (input.isEmpty) {
+      HapticFeedback.lightImpact();
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_validationMessage ?? 'Invalid or unsupported link'),
+        backgroundColor: AppTheme.colors.accentError,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    HapticFeedback.lightImpact();
+  }
+
+  Future<void> _handleShareLink() async {
+    final input = _linkController.text.trim();
+    if (input.isEmpty || _isSharingLink) {
+      return;
+    }
+
+    setState(() => _isSharingLink = true);
+
+    final validation = UrlValidator.validateAndSanitize(input);
+    if (!validation.isValid) {
+      _updateValidation(input, triggerHaptic: false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(validation.errorMessage ?? 'Invalid link'),
+            backgroundColor: AppTheme.colors.accentError,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      setState(() => _isSharingLink = false);
+      return;
+    }
+
+    final target =
+        '/process?link=${Uri.encodeComponent(validation.sanitizedUrl)}&mode=share';
+    if (mounted) {
+      context.push(target);
+    }
+    setState(() => _isSharingLink = false);
   }
 
   Widget _buildOpenAppButton(MusicService service) {

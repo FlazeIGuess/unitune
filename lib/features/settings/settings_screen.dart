@@ -2,13 +2,14 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:app_settings/app_settings.dart';
 import '../../core/constants/services.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/dynamic_theme.dart';
+import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/liquid_glass_container.dart';
+import '../../core/widgets/optimized_liquid_glass.dart';
 import '../../core/widgets/unitune_logo.dart';
 import '../../core/widgets/unitune_header.dart';
 import '../../core/widgets/brand_logo.dart';
@@ -40,7 +41,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           // Glass layer for all glass elements
-          LiquidGlassLayer(
+          OptimizedLiquidGlassLayer(
             settings: AppTheme.liquidGlassDefault,
             child: SafeArea(
               child: Column(
@@ -268,7 +269,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             _showInterceptionSetupDialog(context);
                           }
                         },
-                        activeColor: context.primaryColor,
+                        activeThumbColor: context.primaryColor,
                       ),
                     ],
                   ),
@@ -343,6 +344,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           'Configure Link Handling',
           style: AppTheme.typography.titleMedium.copyWith(
             color: AppTheme.colors.textPrimary,
+            fontFamily: 'ZalandoSansExpanded',
           ),
         ),
         content: Column(
@@ -368,12 +370,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ],
         ),
         actions: [
-          TextButton(
+          InlineGlassButton(
+            label: 'Got it',
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Got it',
-              style: TextStyle(color: context.primaryColor),
-            ),
           ),
         ],
       ),
@@ -390,6 +389,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           'Music Link Interception',
           style: AppTheme.typography.titleMedium.copyWith(
             color: AppTheme.colors.textPrimary,
+            fontFamily: 'ZalandoSansExpanded',
           ),
         ),
         content: Column(
@@ -438,22 +438,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ],
         ),
         actions: [
-          TextButton(
+          InlineGlassButton(
+            label: 'Later',
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Later',
-              style: TextStyle(color: AppTheme.colors.textMuted),
-            ),
+            color: AppTheme.colors.textMuted,
           ),
-          TextButton(
+          InlineGlassButton(
+            label: 'Open Settings',
             onPressed: () {
               Navigator.of(context).pop();
               _openLinkSettings(context);
             },
-            child: Text(
-              'Open Settings',
-              style: TextStyle(color: context.primaryColor),
-            ),
           ),
         ],
       ),
@@ -518,10 +513,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         'UniTune',
                         style: AppTheme.typography.titleMedium.copyWith(
                           color: AppTheme.colors.textPrimary,
+                          fontFamily: 'ZalandoSansExpanded',
                         ),
                       ),
                       Text(
-                        'Version 1.3.1',
+                        'Version 1.4.1',
                         style: AppTheme.typography.bodyMedium.copyWith(
                           color: AppTheme.colors.textSecondary,
                         ),
@@ -540,6 +536,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
           ),
         ),
+        SizedBox(height: AppTheme.spacing.m),
+        _SupportButton(),
         SizedBox(height: AppTheme.spacing.m),
         _PrivacyPolicyButton(),
       ],
@@ -728,6 +726,53 @@ class _PrivacyPolicyButton extends StatelessWidget {
               Expanded(
                 child: Text(
                   'Privacy Policy',
+                  style: AppTheme.typography.bodyLarge.copyWith(
+                    color: AppTheme.colors.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.open_in_new,
+                color: AppTheme.colors.textMuted,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SupportButton extends StatelessWidget {
+  const _SupportButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return LiquidGlassCard(
+      padding: EdgeInsets.zero,
+      child: InkWell(
+        onTap: () async {
+          HapticFeedback.lightImpact();
+          final uri = Uri.parse('https://unitune.art/contact');
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        },
+        child: Padding(
+          padding: EdgeInsets.all(AppTheme.spacing.m),
+          child: Row(
+            children: [
+              Icon(
+                Icons.favorite_border,
+                color: AppTheme.colors.textSecondary,
+                size: 24,
+              ),
+              SizedBox(width: AppTheme.spacing.m),
+              Expanded(
+                child: Text(
+                  'Support UniTune',
                   style: AppTheme.typography.bodyLarge.copyWith(
                     color: AppTheme.colors.textPrimary,
                     fontWeight: FontWeight.w500,

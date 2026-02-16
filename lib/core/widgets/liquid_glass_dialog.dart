@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import '../theme/app_theme.dart';
 
 /// Liquid Glass Dialog - Modern confirmation dialog with glass morphism
@@ -152,7 +152,7 @@ class LiquidGlassDialog extends StatelessWidget {
 }
 
 /// Dialog button with Liquid Glass styling
-class _DialogButton extends StatefulWidget {
+class _DialogButton extends StatelessWidget {
   final String label;
   final VoidCallback onPressed;
   final bool isPrimary;
@@ -166,70 +166,38 @@ class _DialogButton extends StatefulWidget {
   });
 
   @override
-  State<_DialogButton> createState() => _DialogButtonState();
-}
-
-class _DialogButtonState extends State<_DialogButton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 150),
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.95,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final color = widget.isDestructive
+    final color = isDestructive
         ? AppTheme.colors.accentError
         : AppTheme.colors.textSecondary;
 
-    return GestureDetector(
-      onTapDown: (_) => _controller.forward(),
-      onTapUp: (_) {
-        _controller.reverse();
-        widget.onPressed();
-      },
-      onTapCancel: () => _controller.reverse(),
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: Container(
-          height: 48,
-          decoration: BoxDecoration(
-            color: widget.isPrimary
-                ? color.withValues(alpha: 0.15)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(color: color.withValues(alpha: 0.3), width: 1.0),
-          ),
-          child: Center(
-            child: Text(
-              widget.label,
-              style: AppTheme.typography.labelLarge.copyWith(
-                color: color,
-                fontWeight: widget.isPrimary
-                    ? FontWeight.w600
-                    : FontWeight.w500,
-              ),
+    return GlassButton.custom(
+      onTap: onPressed,
+      width: _dialogWidth(label),
+      height: 48,
+      useOwnLayer: true,
+      shape: const LiquidRoundedSuperellipse(borderRadius: 32),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isPrimary ? color.withValues(alpha: 0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(32),
+          border: Border.all(color: color.withValues(alpha: 0.3), width: 1.0),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: AppTheme.typography.labelLarge.copyWith(
+              color: color,
+              fontWeight: isPrimary ? FontWeight.w600 : FontWeight.w500,
             ),
           ),
         ),
       ),
     );
   }
+}
+
+double _dialogWidth(String label) {
+  final base = (label.length * 9.0) + 40.0;
+  return base.clamp(110.0, 200.0);
 }

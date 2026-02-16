@@ -113,15 +113,32 @@ class UniTuneLinkEncoder {
       case 'spotify':
         return 'https://open.spotify.com/$type/$id';
       case 'applemusic':
-        // Apple Music URLs are complex, return a search URL
+        if (type == 'album') {
+          return 'https://music.apple.com/us/album/$id';
+        }
+        if (type == 'artist') {
+          return 'https://music.apple.com/us/artist/$id';
+        }
         return 'https://music.apple.com/us/song/$id';
       case 'tidal':
         return 'https://tidal.com/browse/$type/$id';
       case 'youtubemusic':
+        if (type == 'album') {
+          return 'https://music.youtube.com/playlist?list=$id';
+        }
+        if (type == 'artist') {
+          return 'https://music.youtube.com/channel/$id';
+        }
         return 'https://music.youtube.com/watch?v=$id';
       case 'deezer':
         return 'https://www.deezer.com/$type/$id';
       case 'amazonmusic':
+        if (type == 'album') {
+          return 'https://music.amazon.com/albums/$id';
+        }
+        if (type == 'artist') {
+          return 'https://music.amazon.com/artists/$id';
+        }
         return 'https://music.amazon.com/tracks/$id';
       default:
         return null;
@@ -149,8 +166,7 @@ class UniTuneLinkEncoder {
         }
       }
 
-      // Apple Music: https://music.apple.com/us/album/song-name/1234567890?i=987654321
-      // or: https://music.apple.com/us/song/song-name/1662999658
+      // Apple Music
       if (host.contains('music.apple.com')) {
         print('  Detected Apple Music URL');
 
@@ -166,7 +182,6 @@ class UniTuneLinkEncoder {
         }
 
         // Try path-based ID (direct song link)
-        // Match: /us/song/song-name/1662999658 or /song/song-name/1662999658
         final match = RegExp(r'/song/[^/]+/(\d+)').firstMatch(path);
         if (match != null) {
           print('  ✅ Apple Music match (path): id=${match.group(1)}');
@@ -174,6 +189,26 @@ class UniTuneLinkEncoder {
             platform: 'appleMusic',
             type: 'song',
             trackId: match.group(1)!,
+          );
+        }
+
+        final albumMatch = RegExp(r'/album/[^/]+/(\d+)').firstMatch(path);
+        if (albumMatch != null) {
+          print('  ✅ Apple Music album match: id=${albumMatch.group(1)}');
+          return _MusicUrlParts(
+            platform: 'appleMusic',
+            type: 'album',
+            trackId: albumMatch.group(1)!,
+          );
+        }
+
+        final artistMatch = RegExp(r'/artist/[^/]+/(\d+)').firstMatch(path);
+        if (artistMatch != null) {
+          print('  ✅ Apple Music artist match: id=${artistMatch.group(1)}');
+          return _MusicUrlParts(
+            platform: 'appleMusic',
+            type: 'artist',
+            trackId: artistMatch.group(1)!,
           );
         }
 
@@ -201,7 +236,7 @@ class UniTuneLinkEncoder {
         }
       }
 
-      // YouTube Music: https://music.youtube.com/watch?v=dQw4w9WgXcQ
+      // YouTube Music
       if (host.contains('music.youtube.com')) {
         final videoId = uri.queryParameters['v'];
         if (videoId != null) {
@@ -209,6 +244,35 @@ class UniTuneLinkEncoder {
             platform: 'youtubeMusic',
             type: 'video',
             trackId: videoId,
+          );
+        }
+
+        final listId = uri.queryParameters['list'];
+        if (listId != null) {
+          return _MusicUrlParts(
+            platform: 'youtubeMusic',
+            type: 'album',
+            trackId: listId,
+          );
+        }
+
+        if (uri.pathSegments.isNotEmpty &&
+            uri.pathSegments.first == 'channel' &&
+            uri.pathSegments.length > 1) {
+          return _MusicUrlParts(
+            platform: 'youtubeMusic',
+            type: 'artist',
+            trackId: uri.pathSegments[1],
+          );
+        }
+
+        if (uri.pathSegments.isNotEmpty &&
+            uri.pathSegments.first == 'browse' &&
+            uri.pathSegments.length > 1) {
+          return _MusicUrlParts(
+            platform: 'youtubeMusic',
+            type: 'album',
+            trackId: uri.pathSegments[1],
           );
         }
       }
@@ -225,7 +289,7 @@ class UniTuneLinkEncoder {
         }
       }
 
-      // Amazon Music: https://music.amazon.com/albums/B08X6JQF7V?trackAsin=B08X6K1234
+      // Amazon Music
       if (host.contains('music.amazon.com')) {
         final trackAsin = uri.queryParameters['trackAsin'];
         if (trackAsin != null) {
@@ -233,6 +297,25 @@ class UniTuneLinkEncoder {
             platform: 'amazonMusic',
             type: 'track',
             trackId: trackAsin,
+          );
+        }
+
+        final segments = uri.pathSegments;
+        final albumIndex = segments.indexOf('albums');
+        if (albumIndex != -1 && segments.length > albumIndex + 1) {
+          return _MusicUrlParts(
+            platform: 'amazonMusic',
+            type: 'album',
+            trackId: segments[albumIndex + 1],
+          );
+        }
+
+        final artistIndex = segments.indexOf('artists');
+        if (artistIndex != -1 && segments.length > artistIndex + 1) {
+          return _MusicUrlParts(
+            platform: 'amazonMusic',
+            type: 'artist',
+            trackId: segments[artistIndex + 1],
           );
         }
       }

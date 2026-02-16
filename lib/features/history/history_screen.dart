@@ -11,8 +11,12 @@ import '../../core/widgets/unitune_header.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/history_action_sheet.dart';
 import '../../core/widgets/liquid_glass_dialog.dart';
+import '../../core/widgets/native_ad_card.dart';
+import '../../core/widgets/optimized_liquid_glass.dart';
+import '../../core/widgets/liquid_glass_container.dart';
 import '../../core/utils/link_encoder.dart';
 import '../../data/models/history_entry.dart';
+import '../../data/models/music_content_type.dart';
 import '../../data/repositories/unitune_repository.dart';
 import '../settings/preferences_manager.dart';
 import '../../core/constants/services.dart';
@@ -38,6 +42,7 @@ class HistoryScreen extends ConsumerStatefulWidget {
 class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   int _selectedTabIndex = 0;
   final PageController _pageController = PageController();
+  MusicService? _serviceFilter;
 
   @override
   void dispose() {
@@ -58,6 +63,12 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     setState(() => _selectedTabIndex = index);
   }
 
+  void _handleServiceFilter(MusicService? service) {
+    setState(() {
+      _serviceFilter = service;
+    });
+  }
+
   Future<void> _refreshHistory() async {
     // Invalidate the provider to force refresh
     ref.invalidate(sharedHistoryProvider);
@@ -70,6 +81,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       context: context,
       title: entry.title,
       artist: entry.artist,
+      contentType: entry.contentType,
       thumbnailUrl: entry.thumbnailUrl,
       onShare: () => _shareEntry(entry),
       onOpen: () => _openEntry(entry),
@@ -116,8 +128,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       final messenger = ref.read(preferredMessengerProvider);
 
       // Prepare message
-      final songInfo = '${entry.title} by ${entry.artist}';
-      final message = '$songInfo\n$shareLink';
+      final message = _buildShareMessage(entry, shareLink);
       final encodedMessage = Uri.encodeComponent(message);
 
       // Launch messenger
@@ -156,7 +167,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       // Fallback: use system share
       if (!mounted) return;
       try {
-        await Share.share(message, subject: 'Check out this song on UniTune');
+        await Share.share(
+          message,
+          subject: 'Check out this ${_contentLabel(entry)} on UniTune',
+        );
       } catch (e) {
         debugPrint('Error showing system share: $e');
         if (!mounted) return;
@@ -179,6 +193,56 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         ),
       );
     }
+  }
+
+  String _displayTitle(HistoryEntry entry) {
+    switch (entry.contentType) {
+      case MusicContentType.artist:
+        return entry.title.isNotEmpty ? entry.title : entry.artist;
+      case MusicContentType.album:
+      case MusicContentType.track:
+      case MusicContentType.playlist:
+      case MusicContentType.unknown:
+        return entry.title;
+    }
+  }
+
+  String _displaySubtitle(HistoryEntry entry) {
+    switch (entry.contentType) {
+      case MusicContentType.artist:
+        return 'Artist';
+      case MusicContentType.album:
+      case MusicContentType.track:
+      case MusicContentType.playlist:
+      case MusicContentType.unknown:
+        return entry.artist;
+    }
+  }
+
+  String _contentLabel(HistoryEntry entry) {
+    switch (entry.contentType) {
+      case MusicContentType.album:
+        return 'album';
+      case MusicContentType.artist:
+        return 'artist';
+      case MusicContentType.track:
+        return 'song';
+      case MusicContentType.playlist:
+        return 'playlist';
+      case MusicContentType.unknown:
+        return 'music';
+    }
+  }
+
+  String _buildShareMessage(HistoryEntry entry, String shareLink) {
+    final title = _displayTitle(entry);
+    final subtitle = _displaySubtitle(entry);
+    final headline = entry.contentType == MusicContentType.artist
+        ? 'Artist: $title'
+        : subtitle.isNotEmpty
+        ? '$title by $subtitle'
+        : title;
+    return '$headline\n$shareLink';
   }
 
   /// Open the entry in the preferred music app
@@ -280,7 +344,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           ),
         ),
         // Glass layer for all glass elements
-        LiquidGlassLayer(
+        OptimizedLiquidGlassLayer(
           settings: AppTheme.liquidGlassDefault,
           child: SafeArea(
             bottom: false,
@@ -292,6 +356,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 // Tab Bar
                 _buildTabBar(),
                 const SizedBox(height: 16),
+                _buildFilterBar(),
+                const SizedBox(height: 16),
                 // Tab Content with PageView
                 Expanded(
                   child: PageView(
@@ -302,8 +368,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                       _HistoryTab(
                         provider: sharedHistoryProvider,
                         emptyIcon: Icons.share_outlined,
-                        emptyTitle: 'No songs shared yet',
-                        emptySubtitle: 'Share a song from your music app',
+                        emptyTitle: 'No shares yet',
+                        emptySubtitle: 'Share music from your app',
+                        serviceFilter: _serviceFilter,
+                        resolveService: _resolveServiceFromUrl,
                         onEntryTap: _onEntryTap,
                         onEntryDelete: _onEntryDelete,
                         onRefresh: _refreshHistory,
@@ -311,8 +379,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                       _HistoryTab(
                         provider: receivedHistoryProvider,
                         emptyIcon: Icons.download_outlined,
-                        emptyTitle: 'No songs received yet',
+                        emptyTitle: 'No items received yet',
                         emptySubtitle: 'Open a UniTune link from friends',
+                        serviceFilter: _serviceFilter,
+                        resolveService: _resolveServiceFromUrl,
                         onEntryTap: _onEntryTap,
                         onEntryDelete: _onEntryDelete,
                         onRefresh: _refreshHistory,
@@ -369,7 +439,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       context: context,
       title: 'Clear all history?',
       content:
-          'This will permanently delete all shared and received songs from your history.',
+          'This will permanently delete all shared and received items from your history.',
       confirmText: 'Clear All',
       cancelText: 'Cancel',
       isDestructive: true,
@@ -403,6 +473,87 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       ),
     );
   }
+
+  Widget _buildFilterBar() {
+    final chips = <Widget>[
+      _buildFilterChip(
+        label: 'All',
+        isSelected: _serviceFilter == null,
+        onTap: () => _handleServiceFilter(null),
+      ),
+    ];
+    for (final service in MusicService.values) {
+      chips.add(
+        _buildFilterChip(
+          label: service.name,
+          isSelected: _serviceFilter == service,
+          onTap: () => _handleServiceFilter(service),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: EdgeInsets.symmetric(horizontal: AppTheme.spacing.m),
+      child: Row(
+        children: [
+          for (int i = 0; i < chips.length; i++) ...[
+            chips[i],
+            if (i != chips.length - 1) SizedBox(width: AppTheme.spacing.s),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (_) => onTap(),
+      selectedColor: context.primaryColor.withValues(alpha: 0.2),
+      checkmarkColor: context.primaryColor,
+      labelStyle: TextStyle(
+        color: isSelected
+            ? context.primaryColor
+            : AppTheme.colors.textSecondary,
+        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+      ),
+      backgroundColor: AppTheme.colors.backgroundCard,
+      side: BorderSide(
+        color: isSelected
+            ? context.primaryColor.withValues(alpha: 0.4)
+            : AppTheme.colors.glassBorder,
+      ),
+    );
+  }
+
+  MusicService? _resolveServiceFromUrl(HistoryEntry entry) {
+    final lower = entry.originalUrl.toLowerCase();
+    if (lower.contains('open.spotify.com') || lower.contains('spotify.link')) {
+      return MusicService.spotify;
+    }
+    if (lower.contains('music.apple.com')) {
+      return MusicService.appleMusic;
+    }
+    if (lower.contains('tidal.com') || lower.contains('listen.tidal.com')) {
+      return MusicService.tidal;
+    }
+    if (lower.contains('music.youtube.com') || lower.contains('youtu.be')) {
+      return MusicService.youtubeMusic;
+    }
+    if (lower.contains('deezer.page.link') || lower.contains('deezer.com')) {
+      return MusicService.deezer;
+    }
+    if (lower.contains('music.amazon') || lower.contains('amazon.com/music')) {
+      return MusicService.amazonMusic;
+    }
+    return null;
+  }
 }
 
 /// Individual tab content showing history entries
@@ -411,6 +562,8 @@ class _HistoryTab extends ConsumerWidget {
   final IconData emptyIcon;
   final String emptyTitle;
   final String emptySubtitle;
+  final MusicService? serviceFilter;
+  final MusicService? Function(HistoryEntry entry) resolveService;
   final Function(HistoryEntry) onEntryTap;
   final Function(HistoryEntry) onEntryDelete;
   final Future<void> Function() onRefresh;
@@ -420,6 +573,8 @@ class _HistoryTab extends ConsumerWidget {
     required this.emptyIcon,
     required this.emptyTitle,
     required this.emptySubtitle,
+    required this.serviceFilter,
+    required this.resolveService,
     required this.onEntryTap,
     required this.onEntryDelete,
     required this.onRefresh,
@@ -439,7 +594,11 @@ class _HistoryTab extends ConsumerWidget {
         ),
       ),
       data: (entries) {
-        if (entries.isEmpty) {
+        final filteredEntries = serviceFilter == null
+            ? entries
+            : entries.where((e) => resolveService(e) == serviceFilter).toList();
+
+        if (filteredEntries.isEmpty) {
           return _buildEmptyState(context);
         }
 
@@ -454,11 +613,29 @@ class _HistoryTab extends ConsumerWidget {
               AppTheme.spacing.m,
               120, // Bottom padding for floating navigation bar
             ),
-            itemCount: entries.length,
+            itemCount:
+                filteredEntries.length + (filteredEntries.length ~/ 5) + 1,
             // Consistent spacing between cards (Requirement 10.5)
             separatorBuilder: (_, __) => SizedBox(height: AppTheme.spacing.s),
             itemBuilder: (context, index) {
-              final entry = entries[index];
+              if (index == 0) {
+                return _buildSummaryCard(context, filteredEntries);
+              }
+
+              final entryPosition = index - 1;
+              if (entryPosition > 0 && (entryPosition + 1) % 6 == 0) {
+                return const NativeAdCard();
+              }
+
+              // Calculate actual entry index (accounting for ads)
+              final adCount = (entryPosition + 1) ~/ 6;
+              final entryIndex = entryPosition - adCount;
+
+              if (entryIndex >= filteredEntries.length) {
+                return const SizedBox.shrink();
+              }
+
+              final entry = filteredEntries[entryIndex];
               return HistoryCard(
                 historyEntry: entry,
                 onTap: () => onEntryTap(entry),
@@ -495,6 +672,7 @@ class _HistoryTab extends ConsumerWidget {
               emptyTitle,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: AppTheme.colors.textSecondary,
+                fontFamily: 'ZalandoSansExpanded',
               ),
               textAlign: TextAlign.center,
             ),
@@ -510,6 +688,49 @@ class _HistoryTab extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildSummaryCard(BuildContext context, List<HistoryEntry> entries) {
+    final topService = _getTopService(entries);
+    final total = entries.length;
+    final topLabel = topService?.name;
+    final topCount = topService == null
+        ? null
+        : entries.where((e) => resolveService(e) == topService).length;
+
+    return LiquidGlassCard(
+      child: Row(
+        children: [
+          Icon(Icons.analytics_outlined, color: context.primaryColor, size: 24),
+          SizedBox(width: AppTheme.spacing.m),
+          Expanded(
+            child: Text(
+              topLabel == null
+                  ? 'Total: $total'
+                  : 'Total: $total • Top service: $topLabel ($topCount)',
+              style: AppTheme.typography.bodyMedium.copyWith(
+                color: AppTheme.colors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  MusicService? _getTopService(List<HistoryEntry> entries) {
+    if (entries.isEmpty) return null;
+    final counts = <MusicService, int>{};
+    for (final entry in entries) {
+      final service = resolveService(entry);
+      if (service == null) continue;
+      counts[service] = (counts[service] ?? 0) + 1;
+    }
+    if (counts.isEmpty) return null;
+    final sorted = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return sorted.first.key;
   }
 }
 

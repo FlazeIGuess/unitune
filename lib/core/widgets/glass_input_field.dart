@@ -28,6 +28,10 @@ class GlassInputField extends StatefulWidget {
   /// Text editing controller for the input field
   final TextEditingController? controller;
 
+  final FocusNode? focusNode;
+
+  final Color? borderColor;
+
   /// Maximum number of lines (default: 1)
   final int maxLines;
 
@@ -46,6 +50,8 @@ class GlassInputField extends StatefulWidget {
     this.placeholder,
     this.onChanged,
     this.controller,
+    this.focusNode,
+    this.borderColor,
     this.maxLines = 1,
     this.enabled = true,
     this.keyboardType = TextInputType.text,
@@ -58,19 +64,23 @@ class GlassInputField extends StatefulWidget {
 
 class _GlassInputFieldState extends State<GlassInputField> {
   late FocusNode _focusNode;
+  late bool _ownsFocusNode;
   bool _isFocused = false;
 
   @override
   void initState() {
     super.initState();
-    _focusNode = FocusNode();
+    _ownsFocusNode = widget.focusNode == null;
+    _focusNode = widget.focusNode ?? FocusNode();
     _focusNode.addListener(_onFocusChange);
   }
 
   @override
   void dispose() {
     _focusNode.removeListener(_onFocusChange);
-    _focusNode.dispose();
+    if (_ownsFocusNode) {
+      _focusNode.dispose();
+    }
     super.dispose();
   }
 
@@ -112,10 +122,11 @@ class _GlassInputFieldState extends State<GlassInputField> {
                 horizontal: AppTheme.spacing.m,
                 vertical: AppTheme.spacing.s,
               ),
-              // Change border color on focus
-              borderColor: _isFocused
-                  ? AppTheme.colors.primary.withValues(alpha: 0.5)
-                  : AppTheme.colors.glassBorder,
+              borderColor:
+                  widget.borderColor ??
+                  (_isFocused
+                      ? AppTheme.colors.primary.withValues(alpha: 0.5)
+                      : AppTheme.colors.glassBorder),
               child: TextField(
                 controller: widget.controller,
                 focusNode: _focusNode,
