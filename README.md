@@ -54,6 +54,8 @@ No accounts, no login, no analytics. All data stays on your device. The only out
 
 ### Ads & Why They Exist
 UniTune shows ads via Google AdMob. The app relies on a self-hosted backend that performs all music link conversions. Running that backend has real infrastructure costs. Ads are the way to cover those costs and keep the app free. No ad data is linked to your identity, and no personal information leaves your device.
+
+### Dynamic Color Theming
 Album artwork automatically influences the entire app color scheme for every song you open. Every conversion looks different.
 
 ### History & Analytics
