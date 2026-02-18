@@ -32,6 +32,9 @@ UniTune eliminates the frustration of incompatible music links. When a friend sh
 </table>
 </div>
 
+> **Interested in testing UniTune?** We are currently looking for beta testers on Android.
+> Apply here: [https://forms.gle/k2HPCNpEYtdeVZpz5](https://forms.gle/k2HPCNpEYtdeVZpz5)
+
 ## Key Features
 
 ### Universal Link Conversion
