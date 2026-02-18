@@ -1,7 +1,7 @@
 name: unitune
 description: "UniTune - Universal Music Link Sharing"
 publish_to: "none"
-version: 1.4.3+14
+version: 1.4.4+15
 
 environment:
   sdk: ^3.10.7

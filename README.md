@@ -10,7 +10,7 @@
   [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
   [![Flutter](https://img.shields.io/badge/Flutter-3.27.1-02569B?logo=flutter)](https://flutter.dev)
   [![Build Status](https://github.com/FlazeIGuess/unitune/workflows/Build%20Android%20APK/badge.svg)](https://github.com/FlazeIGuess/unitune/actions)
-  [![Version](https://img.shields.io/badge/version-1.4.3-brightgreen.svg)](https://github.com/FlazeIGuess/unitune/releases)
+  [![Version](https://img.shields.io/badge/version-1.4.4-brightgreen.svg)](https://github.com/FlazeIGuess/unitune/releases)
 
   [![Download APK](https://img.shields.io/badge/Download-APK-brightgreen?logo=android&logoColor=white)](https://github.com/FlazeIGuess/unitune/releases/latest)
 </div>

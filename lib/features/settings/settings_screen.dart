@@ -380,7 +380,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                       Text(
-                        'Version 1.4.3',
+                        'Version 1.4.4',
                         style: AppTheme.typography.bodyMedium.copyWith(
                           color: AppTheme.colors.textSecondary,
                         ),
@@ -401,6 +401,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         SizedBox(height: AppTheme.spacing.m),
         _SupportButton(),
+        SizedBox(height: AppTheme.spacing.m),
+        _ReportBugButton(),
         SizedBox(height: AppTheme.spacing.m),
         _PrivacyPolicyButton(),
       ],
@@ -561,9 +563,68 @@ class _MessengerServiceTile extends StatelessWidget {
 
 /// Privacy Policy Button Widget
 /// Opens the app privacy policy in the browser
+class _ReportBugButton extends StatelessWidget {
+  const _ReportBugButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return LiquidGlassCard(
+      padding: EdgeInsets.zero,
+      child: InkWell(
+        onTap: () async {
+          HapticFeedback.lightImpact();
+          final uri = Uri.parse(
+            'https://github.com/FlazeIGuess/unitune/issues',
+          );
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        },
+        child: Padding(
+          padding: EdgeInsets.all(AppTheme.spacing.m),
+          child: Row(
+            children: [
+              Icon(
+                Icons.bug_report_outlined,
+                color: AppTheme.colors.textSecondary,
+                size: 24,
+              ),
+              SizedBox(width: AppTheme.spacing.m),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Report a Bug',
+                      style: AppTheme.typography.bodyLarge.copyWith(
+                        color: AppTheme.colors.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      'Opens GitHub Issues',
+                      style: AppTheme.typography.labelMedium.copyWith(
+                        color: AppTheme.colors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.open_in_new,
+                color: AppTheme.colors.textMuted,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PrivacyPolicyButton extends StatelessWidget {
   const _PrivacyPolicyButton();
-
   @override
   Widget build(BuildContext context) {
     return LiquidGlassCard(
