@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:async';
+import 'dart:math' as math;
 import '../../core/security/url_validator.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/dynamic_theme.dart';
@@ -38,6 +40,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   bool _showPasteHint = false;
   String _lastValidatedText = '';
 
+  // Random service rotation for when no songs received
+  Timer? _serviceRotationTimer;
+  int _currentRandomServiceIndex = 0;
+  final _random = math.Random();
+
   @override
   void initState() {
     super.initState();
@@ -51,14 +58,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
     _fadeController.forward();
     _linkFocusNode.addListener(_handleLinkFocusChange);
+    _startServiceRotation();
   }
 
   @override
   void dispose() {
+    _serviceRotationTimer?.cancel();
     _fadeController.dispose();
     _linkController.dispose();
     _linkFocusNode.dispose();
     super.dispose();
+  }
+
+  /// Start rotating through random services every 3 seconds
+  void _startServiceRotation() {
+    _serviceRotationTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) {
+        setState(() {
+          _currentRandomServiceIndex = _random.nextInt(
+            MusicService.values.length,
+          );
+        });
+      }
+    });
   }
 
   @override
@@ -97,6 +119,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _buildContent(BuildContext context) {
     final preferredService = ref.watch(preferredMusicServiceProvider);
+    final mostReceivedServiceAsync = ref.watch(_mostReceivedServiceProvider);
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -105,6 +128,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ref.invalidate(chartDataProvider);
         ref.invalidate(receivedStatisticsProvider);
         ref.invalidate(receivedChartDataProvider);
+        ref.invalidate(_mostReceivedServiceProvider);
 
         // Wait a bit for the refresh animation
         await Future.delayed(const Duration(milliseconds: 500));
@@ -144,49 +168,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             SizedBox(height: AppTheme.spacing.l),
 
             // Instructions Card
-            Container(
-              width: double.infinity, // Ensure full width
-              padding: EdgeInsets.all(AppTheme.spacing.l),
-              decoration: BoxDecoration(
-                color: AppTheme.colors.glassBase,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: AppTheme.colors.glassBorder,
-                  width: 1.0,
-                ),
+            mostReceivedServiceAsync.when(
+              data: (mostReceivedService) => _buildInstructionsCard(
+                context,
+                preferredService,
+                mostReceivedService,
               ),
-              child: Column(
-                children: [
-                  Icon(Icons.share, size: 48, color: context.primaryColor),
-                  SizedBox(height: AppTheme.spacing.m),
-                  Text(
-                    'Share a song from any music app',
-                    style: AppTheme.typography.titleMedium.copyWith(
-                      color: AppTheme.colors.textPrimary,
-                      fontFamily: 'ZalandoSansExpanded',
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: AppTheme.spacing.s),
-                  Text(
-                    'UniTune will convert it to your preferred platform',
-                    style: AppTheme.typography.bodyMedium.copyWith(
-                      color: AppTheme.colors.textSecondary,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-
-                  // Button to open preferred music service
-                  if (preferredService != null) ...[
-                    SizedBox(height: AppTheme.spacing.l),
-                    _buildOpenAppButton(preferredService),
-                  ],
-                ],
-              ),
+              loading: () =>
+                  _buildInstructionsCard(context, preferredService, null),
+              error: (_, __) =>
+                  _buildInstructionsCard(context, preferredService, null),
             ),
 
             // Bottom padding for navigation
-            SizedBox(height: 120),
+            const SizedBox(height: 120),
           ],
         ),
       ),
@@ -213,7 +208,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Paste a music link',
+            'Convert any music link',
             style: AppTheme.typography.titleMedium.copyWith(
               color: AppTheme.colors.textPrimary,
               fontFamily: 'ZalandoSansExpanded',
@@ -221,7 +216,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
           SizedBox(height: AppTheme.spacing.s),
           Text(
-            'Paste a Spotify, Apple Music, Tidal, YouTube Music, Deezer, or Amazon Music link.',
+            'Works with Spotify, Apple Music, Tidal, YouTube Music, Deezer & Amazon Music',
             style: AppTheme.typography.bodyMedium.copyWith(
               color: AppTheme.colors.textSecondary,
             ),
@@ -302,6 +297,122 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 : _handleInvalidShareAttempt,
             icon: Icons.send,
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInstructionsCard(
+    BuildContext context,
+    MusicService? preferredService,
+    MusicService? mostReceivedService,
+  ) {
+    // Determine which service to show for "Friend uses..."
+    final friendService =
+        mostReceivedService ?? MusicService.values[_currentRandomServiceIndex];
+
+    // Determine which service to show for "you use..."
+    final yourService = preferredService ?? MusicService.spotify;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(AppTheme.spacing.l),
+      decoration: BoxDecoration(
+        color: AppTheme.colors.glassBase,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.colors.glassBorder, width: 1.0),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.share, size: 48, color: context.primaryColor),
+          SizedBox(height: AppTheme.spacing.m),
+
+          // Dynamic text with service names
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Friend uses ',
+                style: AppTheme.typography.titleMedium.copyWith(
+                  color: AppTheme.colors.textPrimary,
+                  fontFamily: 'ZalandoSansExpanded',
+                ),
+              ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.3),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  );
+                },
+                child: Text(
+                  friendService.name,
+                  key: ValueKey(friendService),
+                  style: AppTheme.typography.titleMedium.copyWith(
+                    color: context.primaryColor,
+                    fontFamily: 'ZalandoSansExpanded',
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Text(
+                ',',
+                style: AppTheme.typography.titleMedium.copyWith(
+                  color: AppTheme.colors.textPrimary,
+                  fontFamily: 'ZalandoSansExpanded',
+                ),
+              ),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'but you use ',
+                style: AppTheme.typography.titleMedium.copyWith(
+                  color: AppTheme.colors.textPrimary,
+                  fontFamily: 'ZalandoSansExpanded',
+                ),
+              ),
+              Text(
+                yourService.name,
+                style: AppTheme.typography.titleMedium.copyWith(
+                  color: context.primaryColor,
+                  fontFamily: 'ZalandoSansExpanded',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                '?',
+                style: AppTheme.typography.titleMedium.copyWith(
+                  color: AppTheme.colors.textPrimary,
+                  fontFamily: 'ZalandoSansExpanded',
+                ),
+              ),
+            ],
+          ),
+
+          SizedBox(height: AppTheme.spacing.s),
+          Text(
+            'Share songs that work for everyone',
+            style: AppTheme.typography.bodyMedium.copyWith(
+              color: AppTheme.colors.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+          // Button to open preferred music service
+          if (preferredService != null) ...[
+            SizedBox(height: AppTheme.spacing.l),
+            _buildOpenAppButton(preferredService),
+          ],
         ],
       ),
     );
@@ -525,3 +636,57 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 }
+
+/// Provider for most received streaming service
+final _mostReceivedServiceProvider = FutureProvider<MusicService?>((ref) async {
+  final repository = ref.watch(historyRepositoryProvider);
+  final received = await repository.getReceived();
+
+  if (received.isEmpty) {
+    return null;
+  }
+
+  // Helper function to extract service from URL
+  MusicService? extractService(String url) {
+    final lowerUrl = url.toLowerCase();
+
+    if (lowerUrl.contains('spotify')) {
+      return MusicService.spotify;
+    } else if (lowerUrl.contains('apple') || lowerUrl.contains('music.apple')) {
+      return MusicService.appleMusic;
+    } else if (lowerUrl.contains('tidal')) {
+      return MusicService.tidal;
+    } else if (lowerUrl.contains('youtube')) {
+      return MusicService.youtubeMusic;
+    } else if (lowerUrl.contains('deezer')) {
+      return MusicService.deezer;
+    } else if (lowerUrl.contains('amazon')) {
+      return MusicService.amazonMusic;
+    }
+
+    return null;
+  }
+
+  // Count services
+  final serviceCounts = <MusicService, int>{};
+  for (final entry in received) {
+    final service = extractService(entry.originalUrl);
+    if (service != null) {
+      serviceCounts[service] = (serviceCounts[service] ?? 0) + 1;
+    }
+  }
+
+  if (serviceCounts.isEmpty) {
+    return null;
+  }
+
+  // Find most common
+  var mostCommon = serviceCounts.entries.first;
+  for (final entry in serviceCounts.entries) {
+    if (entry.value > mostCommon.value) {
+      mostCommon = entry;
+    }
+  }
+
+  return mostCommon.key;
+});

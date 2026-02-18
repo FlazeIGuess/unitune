@@ -3,8 +3,8 @@ import 'dart:io';
 /// Helper class for AdMob configuration
 /// Manages ad unit IDs for different platforms and environments
 class AdHelper {
-  static const bool adsEnabled = false;
-  // Production mode - using real ad units for store submission
+  static const bool adsEnabled = true;
+  // Test mode - using Google's test ad units for development
   static const bool _useTesting = false;
 
   /// Native Ad Unit ID

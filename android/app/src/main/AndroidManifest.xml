@@ -2,6 +2,9 @@
     <!-- Internet permission for API calls -->
     <uses-permission android:name="android.permission.INTERNET"/>
     
+    <!-- Advertising ID permission (required for AdMob on Android 13+) -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
+    
     <application
         android:label="UniTune"
         android:name="${applicationName}"
@@ -33,12 +36,26 @@
                 <data android:mimeType="text/plain"/>
             </intent-filter>
             
-            <!-- DEEP LINK: Handle unitune links -->
+            <!-- DEEP LINK: Handle unitune.art share links (/s/*) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="https" android:host="unitune.art"/>
+                <data 
+                    android:scheme="https" 
+                    android:host="unitune.art"
+                    android:pathPrefix="/s/"/>
+            </intent-filter>
+            
+            <!-- DEEP LINK: Handle unitune.art playlist links (/p/*) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data 
+                    android:scheme="https" 
+                    android:host="unitune.art"
+                    android:pathPrefix="/p/"/>
             </intent-filter>
             
             <!-- Custom URL scheme for app-to-app communication -->

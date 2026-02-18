@@ -23,6 +23,7 @@ class BrandLogo extends StatelessWidget {
   final String fallbackIcon;
   final Color fallbackColor;
   final double size;
+  final IconData? materialIcon;
 
   const BrandLogo({
     super.key,
@@ -30,6 +31,7 @@ class BrandLogo extends StatelessWidget {
     required this.fallbackIcon,
     required this.fallbackColor,
     this.size = 48,
+    this.materialIcon,
   });
 
   /// Erstellt ein Logo für einen Musik-Streaming-Dienst
@@ -47,12 +49,21 @@ class BrandLogo extends StatelessWidget {
     required MessengerService service,
     double size = 48,
   }) {
+    // Use Material Icons for SMS and System Share
+    IconData? materialIcon;
+    if (service == MessengerService.sms) {
+      materialIcon = Icons.chat_bubble_outline;
+    } else if (service == MessengerService.systemShare) {
+      materialIcon = Icons.ios_share;
+    }
+
     return BrandLogo(
       assetPath:
           'assets/images/brands/messengers/${_getFileName(service.name)}.png',
       fallbackIcon: service.icon,
       fallbackColor: Color(service.color),
       size: size,
+      materialIcon: materialIcon,
     );
   }
 
@@ -64,6 +75,21 @@ class BrandLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // If Material Icon is specified, use it directly
+    if (materialIcon != null) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: fallbackColor.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(size * 0.2),
+        ),
+        child: Center(
+          child: Icon(materialIcon, size: size * 0.55, color: fallbackColor),
+        ),
+      );
+    }
+
     return SizedBox(
       width: size,
       height: size,

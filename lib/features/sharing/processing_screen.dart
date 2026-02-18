@@ -21,6 +21,36 @@ import '../../data/repositories/link_cache_repository.dart';
 import '../../main.dart' show ProcessingMode;
 import '../settings/preferences_manager.dart';
 
+/// Dynamic messages for processing states
+class ProcessingMessages {
+  static const List<String> analyzing = [
+    'Reading music link...',
+    'Identifying song details...',
+    'Checking platform compatibility...',
+  ];
+
+  static const List<String> converting = [
+    'Searching across 6 music platforms...',
+    'Finding your song everywhere...',
+    'Creating universal share link...',
+  ];
+
+  static const List<String> success = [
+    'Found on {count} platforms!',
+    'Ready to share with anyone!',
+    'Your universal link is ready!',
+  ];
+
+  static String getRandomMessage(List<String> messages) {
+    return messages[DateTime.now().millisecond % messages.length];
+  }
+
+  static String getSuccessMessage(int platformCount) {
+    final msg = success[DateTime.now().millisecond % success.length];
+    return msg.replaceAll('{count}', platformCount.toString());
+  }
+}
+
 /// Screen shown when processing an incoming share or opening a shared link
 /// Modern dark mode design with Liquid Glass sphere
 class ProcessingScreen extends ConsumerStatefulWidget {
@@ -41,7 +71,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
   final UnituneRepository _unituneRepo = UnituneRepository();
 
   bool _isLoading = true;
-  String _statusMessage = 'Analyzing link...';
+  String _statusMessage = 'Reading music link...';
   UnituneResponse? _response;
   String? _error;
 
@@ -51,6 +81,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     debugPrint('=== ProcessingScreen.initState() called ===');
     debugPrint('Incoming link: ${widget.incomingLink}');
     debugPrint('Mode: ${widget.mode}');
+    debugPrint('Timestamp: ${DateTime.now().millisecondsSinceEpoch}');
     _processLink();
   }
 
@@ -122,9 +153,8 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
 
         setState(() {
           _response = response;
-          _statusMessage = widget.mode == ProcessingMode.share
-              ? 'Ready to share!'
-              : 'Opening in ${musicService?.name ?? "music app"}...';
+          final platformCount = response.linksByPlatform.length;
+          _statusMessage = ProcessingMessages.getSuccessMessage(platformCount);
           _isLoading = false;
         });
 
@@ -142,7 +172,11 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
 
       // No cache - fetch from API
       if (!mounted) return;
-      setState(() => _statusMessage = 'Converting link...');
+      setState(
+        () => _statusMessage = ProcessingMessages.getRandomMessage(
+          ProcessingMessages.converting,
+        ),
+      );
 
       debugPrint('=== Calling API: ${widget.incomingLink} ===');
       final response = await _unituneRepo.getLinks(widget.incomingLink);
@@ -238,9 +272,8 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
 
       setState(() {
         _response = response;
-        _statusMessage = widget.mode == ProcessingMode.share
-            ? 'Ready to share!'
-            : 'Opening in ${musicService?.name ?? "music app"}...';
+        final platformCount = response.linksByPlatform.length;
+        _statusMessage = ProcessingMessages.getSuccessMessage(platformCount);
         _isLoading = false;
       });
 
@@ -949,13 +982,18 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
 
   String _buildShareMessage(UnituneResponse response, String shareLink) {
     final title = _displayTitle(response);
-    final subtitle = _displaySubtitle(response);
-    final headline = response.contentType == MusicContentType.artist
-        ? 'Artist: $title'
-        : subtitle.isNotEmpty
-        ? '$title by $subtitle'
-        : title;
-    return '$headline\n$shareLink';
+    final artist = _displaySubtitle(response);
+
+    // Branded message with social proof
+    return '''
+${artist.isNotEmpty ? '$artist - $title' : title}
+
+Listen on YOUR music platform:
+$shareLink
+
+Shared via UniTune
+Music that works for everyone - unitune.art
+''';
   }
 
   Widget _buildPlaceholderArt() {

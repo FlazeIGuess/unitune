@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:app_settings/app_settings.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import '../../core/ads/ad_helper.dart';
 import '../../core/constants/services.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/dynamic_theme.dart';
@@ -195,128 +197,65 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  /// Build Advanced section with Music Link Interception toggle
+  /// Build Advanced section with Music Link Interception configuration
   /// Android only feature - allows UniTune to intercept music links
   Widget _buildAdvancedSection(BuildContext context, WidgetRef ref) {
     final interceptEnabled = ref.watch(interceptMusicLinksProvider);
+
+    // Only show if interception is enabled
+    if (!interceptEnabled) return SizedBox.shrink();
 
     return Column(
       children: [
         LiquidGlassCard(
           padding: EdgeInsets.zero,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              InkWell(
-                onTap: () async {
-                  HapticFeedback.lightImpact();
-                  final newValue = !interceptEnabled;
-                  await ref
-                      .read(preferencesManagerProvider)
-                      .setInterceptMusicLinks(newValue);
-                  ref.read(interceptMusicLinksProvider.notifier).state =
-                      newValue;
-
-                  // Show setup dialog on first enable
-                  if (newValue && context.mounted) {
-                    _showInterceptionSetupDialog(context);
-                  }
-                },
-                child: Padding(
-                  padding: EdgeInsets.all(AppTheme.spacing.m),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.link,
-                        color: AppTheme.colors.textSecondary,
-                        size: 24,
-                      ),
-                      SizedBox(width: AppTheme.spacing.m),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Intercept Music Links',
-                              style: AppTheme.typography.bodyLarge.copyWith(
-                                color: AppTheme.colors.textPrimary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Open Spotify, Tidal, etc. links with UniTune (Android only)',
-                              style: AppTheme.typography.bodyMedium.copyWith(
-                                color: AppTheme.colors.textMuted,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Switch(
-                        value: interceptEnabled,
-                        onChanged: (value) async {
-                          HapticFeedback.lightImpact();
-                          await ref
-                              .read(preferencesManagerProvider)
-                              .setInterceptMusicLinks(value);
-                          ref.read(interceptMusicLinksProvider.notifier).state =
-                              value;
-
-                          // Show setup dialog on first enable
-                          if (value && context.mounted) {
-                            _showInterceptionSetupDialog(context);
-                          }
-                        },
-                        activeThumbColor: context.primaryColor,
-                      ),
-                    ],
+          child: InkWell(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              _openLinkSettings(context);
+            },
+            child: Padding(
+              padding: EdgeInsets.all(AppTheme.spacing.m),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.settings_applications,
+                    color: AppTheme.colors.textSecondary,
+                    size: 24,
                   ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (interceptEnabled) ...[
-          SizedBox(height: AppTheme.spacing.s),
-          LiquidGlassCard(
-            padding: EdgeInsets.zero,
-            child: InkWell(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                _openLinkSettings(context);
-              },
-              child: Padding(
-                padding: EdgeInsets.all(AppTheme.spacing.m),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.settings_applications,
-                      color: AppTheme.colors.textSecondary,
-                      size: 24,
-                    ),
-                    SizedBox(width: AppTheme.spacing.m),
-                    Expanded(
-                      child: Text(
-                        'Configure Link Handling',
-                        style: AppTheme.typography.bodyLarge.copyWith(
-                          color: AppTheme.colors.textPrimary,
-                          fontWeight: FontWeight.w500,
+                  SizedBox(width: AppTheme.spacing.m),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Configure Link Handling',
+                          style: AppTheme.typography.bodyLarge.copyWith(
+                            color: AppTheme.colors.textPrimary,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Manage which music links UniTune intercepts',
+                          style: AppTheme.typography.bodyMedium.copyWith(
+                            color: AppTheme.colors.textMuted,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
                     ),
-                    Icon(
-                      Icons.open_in_new,
-                      color: AppTheme.colors.textMuted,
-                      size: 20,
-                    ),
-                  ],
-                ),
+                  ),
+                  Icon(
+                    Icons.open_in_new,
+                    color: AppTheme.colors.textMuted,
+                    size: 20,
+                  ),
+                ],
               ),
             ),
           ),
-        ],
+        ),
       ],
     );
   }
@@ -373,82 +312,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           InlineGlassButton(
             label: 'Got it',
             onPressed: () => Navigator.of(context).pop(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Show setup dialog with instructions
-  void _showInterceptionSetupDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.colors.backgroundDeep,
-        title: Text(
-          'Music Link Interception',
-          style: AppTheme.typography.titleMedium.copyWith(
-            color: AppTheme.colors.textPrimary,
-            fontFamily: 'ZalandoSansExpanded',
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'To intercept music links, you need to configure Android link handling:',
-              style: AppTheme.typography.bodyMedium.copyWith(
-                color: AppTheme.colors.textSecondary,
-              ),
-            ),
-            SizedBox(height: 16),
-            _buildSetupStep('1', 'Tap "Configure Link Handling" below'),
-            SizedBox(height: 8),
-            _buildSetupStep('2', 'Enable "Open supported links"'),
-            SizedBox(height: 8),
-            _buildSetupStep('3', 'Select music services to intercept'),
-            SizedBox(height: 16),
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.colors.textMuted.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline,
-                    color: AppTheme.colors.textMuted,
-                    size: 20,
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Android will ask you to choose between UniTune and the music app each time',
-                      style: AppTheme.typography.bodyMedium.copyWith(
-                        color: AppTheme.colors.textMuted,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          InlineGlassButton(
-            label: 'Later',
-            onPressed: () => Navigator.of(context).pop(),
-            color: AppTheme.colors.textMuted,
-          ),
-          InlineGlassButton(
-            label: 'Open Settings',
-            onPressed: () {
-              Navigator.of(context).pop();
-              _openLinkSettings(context);
-            },
           ),
         ],
       ),
@@ -517,7 +380,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                       Text(
-                        'Version 1.4.1',
+                        'Version 1.4.3',
                         style: AppTheme.typography.bodyMedium.copyWith(
                           color: AppTheme.colors.textSecondary,
                         ),
@@ -745,21 +608,271 @@ class _PrivacyPolicyButton extends StatelessWidget {
   }
 }
 
-class _SupportButton extends StatelessWidget {
+class _SupportButton extends ConsumerStatefulWidget {
   const _SupportButton();
+
+  @override
+  ConsumerState<_SupportButton> createState() => _SupportButtonState();
+}
+
+class _SupportButtonState extends ConsumerState<_SupportButton> {
+  RewardedAd? _rewardedAd;
+  bool _isAdLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRewardedAd();
+  }
+
+  @override
+  void dispose() {
+    _rewardedAd?.dispose();
+    super.dispose();
+  }
+
+  void _loadRewardedAd() {
+    if (!AdHelper.adsEnabled) return;
+    if (_isAdLoading) return;
+    _isAdLoading = true;
+    RewardedAd.load(
+      adUnitId: AdHelper.rewardedAdUnitId,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (ad) {
+          if (mounted) {
+            setState(() {
+              _rewardedAd = ad;
+              _isAdLoading = false;
+            });
+          }
+        },
+        onAdFailedToLoad: (error) {
+          if (mounted) {
+            setState(() {
+              _rewardedAd = null;
+              _isAdLoading = false;
+            });
+          }
+          debugPrint('RewardedAd failed to load: $error');
+        },
+      ),
+    );
+  }
+
+  void _showSupportDialog() {
+    HapticFeedback.lightImpact();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.colors.backgroundDeep,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radii.large),
+        ),
+        title: Text(
+          'Support UniTune',
+          style: AppTheme.typography.titleMedium.copyWith(
+            color: AppTheme.colors.textPrimary,
+            fontFamily: 'ZalandoSansExpanded',
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Help us keep UniTune free and ad-free for everyone',
+              style: AppTheme.typography.bodyMedium.copyWith(
+                color: AppTheme.colors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: AppTheme.spacing.l),
+
+            // Watch Ad Button (always show, even if ads disabled)
+            LiquidGlassCard(
+              padding: EdgeInsets.zero,
+              child: InkWell(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.of(context).pop();
+                  _showRewardedAd();
+                },
+                child: Padding(
+                  padding: EdgeInsets.all(AppTheme.spacing.m),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.play_circle_outline,
+                        color: AppTheme.colors.textSecondary,
+                        size: 24,
+                      ),
+                      SizedBox(width: AppTheme.spacing.m),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Watch a short video',
+                              style: AppTheme.typography.bodyLarge.copyWith(
+                                color: AppTheme.colors.textPrimary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              _rewardedAd != null
+                                  ? 'Support us by watching an ad'
+                                  : AdHelper.adsEnabled
+                                  ? 'Loading...'
+                                  : 'Ads currently disabled',
+                              style: AppTheme.typography.bodyMedium.copyWith(
+                                color: AppTheme.colors.textMuted,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            SizedBox(height: AppTheme.spacing.m),
+
+            // Ko-fi Button
+            LiquidGlassCard(
+              padding: EdgeInsets.zero,
+              child: InkWell(
+                onTap: () async {
+                  HapticFeedback.lightImpact();
+                  Navigator.of(context).pop();
+                  final uri = Uri.parse('https://ko-fi.com/unitune');
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+                child: Padding(
+                  padding: EdgeInsets.all(AppTheme.spacing.m),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.favorite_border,
+                        color: AppTheme.colors.textSecondary,
+                        size: 24,
+                      ),
+                      SizedBox(width: AppTheme.spacing.m),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Buy us a coffee',
+                              style: AppTheme.typography.bodyLarge.copyWith(
+                                color: AppTheme.colors.textPrimary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Support us on Ko-fi',
+                              style: AppTheme.typography.bodyMedium.copyWith(
+                                color: AppTheme.colors.textMuted,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.open_in_new,
+                        color: AppTheme.colors.textMuted,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              Navigator.of(context).pop();
+            },
+            child: Text(
+              'Close',
+              style: TextStyle(color: AppTheme.colors.textMuted),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRewardedAd() {
+    if (!AdHelper.adsEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Support is currently unavailable'),
+          backgroundColor: AppTheme.colors.backgroundCard,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final ad = _rewardedAd;
+    if (ad == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Support video is not ready yet'),
+          backgroundColor: AppTheme.colors.backgroundCard,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      _loadRewardedAd();
+      return;
+    }
+
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        setState(() => _rewardedAd = null);
+        _loadRewardedAd();
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        ad.dispose();
+        setState(() => _rewardedAd = null);
+        _loadRewardedAd();
+      },
+    );
+
+    ad.show(
+      onUserEarnedReward: (_, reward) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Thanks for supporting UniTune'),
+              backgroundColor: AppTheme.colors.backgroundCard,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      },
+    );
+    setState(() => _rewardedAd = null);
+  }
 
   @override
   Widget build(BuildContext context) {
     return LiquidGlassCard(
       padding: EdgeInsets.zero,
       child: InkWell(
-        onTap: () async {
-          HapticFeedback.lightImpact();
-          final uri = Uri.parse('https://unitune.art/contact');
-          if (await canLaunchUrl(uri)) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          }
-        },
+        onTap: _showSupportDialog,
         child: Padding(
           padding: EdgeInsets.all(AppTheme.spacing.m),
           child: Row(
@@ -780,7 +893,7 @@ class _SupportButton extends StatelessWidget {
                 ),
               ),
               Icon(
-                Icons.open_in_new,
+                Icons.chevron_right,
                 color: AppTheme.colors.textMuted,
                 size: 20,
               ),

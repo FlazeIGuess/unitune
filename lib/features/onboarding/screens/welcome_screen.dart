@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
+import 'dart:io' show Platform;
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/dynamic_theme.dart';
 import '../../../core/widgets/optimized_liquid_glass.dart';
-import '../widgets/onboarding_slide.dart';
-import '../widgets/onboarding_illustrations.dart';
+import '../../../core/widgets/unitune_logo.dart';
+import '../../../core/widgets/brand_logo.dart';
+import '../../../core/constants/services.dart';
+import '../widgets/onboarding_progress_bar.dart';
+import '../widgets/onboarding_navigation_buttons.dart';
 
 /// Welcome Screen - First onboarding step
 ///
@@ -51,6 +53,50 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     super.dispose();
   }
 
+  Widget _buildConversionExample(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(AppTheme.spacing.l),
+      decoration: BoxDecoration(
+        color: AppTheme.colors.glassBase,
+        borderRadius: BorderRadius.circular(AppTheme.radii.large),
+        border: Border.all(color: AppTheme.colors.glassBorder, width: 1.0),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Spotify Icon
+          BrandLogo.music(service: MusicService.spotify, size: 32),
+          SizedBox(width: AppTheme.spacing.m),
+
+          // Arrow
+          Icon(Icons.arrow_forward, color: context.primaryColor, size: 24),
+          SizedBox(width: AppTheme.spacing.m),
+
+          // UniTune Icon
+          const UniTuneLogo(size: 32, showText: false),
+          SizedBox(width: AppTheme.spacing.m),
+
+          // Arrow
+          Icon(Icons.arrow_forward, color: context.primaryColor, size: 24),
+          SizedBox(width: AppTheme.spacing.m),
+
+          // Apple Music Icon
+          BrandLogo.music(service: MusicService.appleMusic, size: 32),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressIndicator() {
+    final totalSlides = Platform.isAndroid ? 4 : 3;
+    const slideIndex = 0; // Welcome is step 1 (index 0)
+
+    return OnboardingProgressBar(
+      currentStep: slideIndex,
+      totalSteps: totalSlides,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -69,35 +115,99 @@ class _WelcomeScreenState extends State<WelcomeScreen>
             child: SafeArea(
               child: FadeTransition(
                 opacity: _fadeIn,
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.fromLTRB(
-                          0,
-                          0,
-                          0,
-                          100, // Extra padding for floating button
+                child: Padding(
+                  padding: EdgeInsets.all(AppTheme.spacing.l),
+                  child: Column(
+                    children: [
+                      // Progress indicator
+                      _buildProgressIndicator(),
+
+                      const Spacer(),
+
+                      // Logo
+                      const UniTuneLogo(size: 80),
+                      SizedBox(height: AppTheme.spacing.xl),
+
+                      // Problem Statement (emotional hook)
+                      Text(
+                        'Ever received a music link\nyou couldn\'t open?',
+                        style: AppTheme.typography.displayMedium.copyWith(
+                          color: AppTheme.colors.textPrimary,
+                          fontFamily: 'ZalandoSansExpanded',
                         ),
-                        child: SizedBox(
-                          height: MediaQuery.of(context).size.height - 180,
-                          child: OnboardingSlide(
-                            title: 'Share music universally',
-                            description:
-                                'Send songs to friends, regardless of which streaming service they use. UniTune converts links between Spotify, Apple Music, Tidal, and YouTube Music.',
-                            illustration: const WelcomeIllustration(),
-                            slideIndex: 0,
-                            totalSlides: 3,
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: AppTheme.spacing.m),
+
+                      // Solution
+                      Text(
+                        'UniTune converts any music link to work\non YOUR preferred platform',
+                        style: AppTheme.typography.bodyLarge.copyWith(
+                          color: AppTheme.colors.textSecondary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: AppTheme.spacing.xl),
+
+                      // Visual Example
+                      _buildConversionExample(context),
+                      SizedBox(height: AppTheme.spacing.xl),
+
+                      // Social Proof
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppTheme.spacing.l,
+                          vertical: AppTheme.spacing.m,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.colors.glassBase,
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.radii.pill,
+                          ),
+                          border: Border.all(
+                            color: AppTheme.colors.glassBorder,
+                            width: 1.0,
                           ),
                         ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.people_outline,
+                              color: context.primaryColor,
+                              size: 20,
+                            ),
+                            SizedBox(width: AppTheme.spacing.s),
+                            Text(
+                              'Join thousands of music lovers',
+                              style: AppTheme.typography.labelMedium.copyWith(
+                                color: AppTheme.colors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+
+                      const Spacer(),
+
+                      // Privacy Note
+                      Padding(
+                        padding: EdgeInsets.only(bottom: AppTheme.spacing.m),
+                        child: Text(
+                          'No account needed • Your data stays private',
+                          style: AppTheme.typography.labelMedium.copyWith(
+                            color: AppTheme.colors.textMuted,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-          // Floating CTA Button - Bottom Nav style
+          // Floating Navigation Buttons
           Positioned(
             left: 0,
             right: 0,
@@ -106,64 +216,15 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               top: false,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-                child: _buildFloatingButton(),
+                child: OnboardingNavigationButtons(
+                  onContinue: widget.onContinue,
+                  continueLabel: 'Get Started',
+                  // No back button on first screen
+                ),
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildFloatingButton() {
-    return LiquidGlass.withOwnLayer(
-      settings: const LiquidGlassSettings(
-        blur: 12,
-        ambientStrength: 0.5,
-        glassColor: Color(0x18FFFFFF),
-        thickness: 12,
-        lightIntensity: 0.5,
-        saturation: 1.3,
-        refractiveIndex: 1.15,
-      ),
-      shape: LiquidRoundedSuperellipse(borderRadius: 32),
-      child: GestureDetector(
-        onTap: () {
-          HapticFeedback.lightImpact();
-          widget.onContinue();
-        },
-        child: Container(
-          height: 60,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.1),
-              width: 0.5,
-            ),
-          ),
-          child: Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Get Started',
-                  style: TextStyle(
-                    color: context.primaryColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.arrow_forward,
-                  color: context.primaryColor,
-                  size: 20,
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

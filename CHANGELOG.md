@@ -5,6 +5,45 @@ All notable changes to UniTune will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.3] - 2026-02-18
+
+### Added
+
+- Link Interception onboarding step: dedicated screen during first launch explaining the feature with enable toggle (Android only)
+- Reusable onboarding navigation buttons widget for consistent back/continue flow
+- Onboarding progress bar widget showing current step across all onboarding screens
+- Brand logo widget for consistent platform logo rendering across the app
+- Dynamic processing messages: rotating status text during link analysis and conversion instead of static string
+
+### Changed
+
+- Home screen layout and interaction improvements
+- Onboarding screens refactored to use shared navigation and progress widgets
+- Settings screen restructured for clarity
+
+### Fixed
+
+- Processing screen duplicate link handling now checks both link AND mode, allowing the same link to correctly route as SHARE or OPEN depending on intent
+
+## [1.4.2] - 2026-02-17
+
+### Added
+
+- Native Android intent listener via `MethodChannel` in MainActivity
+- Smart processing mode detection: `ACTION_SEND` intents correctly route to SHARE mode, `ACTION_VIEW` intents to OPEN mode
+- Playlists list screen improvements and additional track display options
+
+### Fixed
+
+- UniTune no longer confuses share intents and deep link opens when both occur within the same session
+- Processing screen correctly determines user intent when link interception and direct share are used together
+
+### Technical
+
+- Added `MethodChannel('de.unitune.unitune/intent')` bridge for native Android intent data
+- `_determineMode()` reads native action within a 2-second window to resolve SHARE vs. OPEN ambiguity
+- Extended `AndroidManifest.xml` intent filters to support additional music link patterns
+
 ## [1.4.1] - 2026-02-15
 
 ### Changed
@@ -271,7 +310,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deep linking support
 - Share intent handling
 
-[Unreleased]: https://github.com/FlazeIGuess/unitune/compare/v1.2.0...HEAD
-[1.2.0]: https://github.com/FlazeIGuess/unitune/releases/tag/v1.2.0
-[1.1.0]: https://github.com/FlazeIGuess/unitune/releases/tag/v1.1.0
+[Unreleased]: https://github.com/FlazeIGuess/unitune/compare/v1.4.3...HEAD
+[1.4.3]: https://github.com/FlazeIGuess/unitune/compare/v1.4.2...v1.4.3
+[1.4.2]: https://github.com/FlazeIGuess/unitune/compare/v1.4.1...v1.4.2
+[1.4.1]: https://github.com/FlazeIGuess/unitune/compare/v1.4.0...v1.4.1
+[1.4.0]: https://github.com/FlazeIGuess/unitune/compare/v1.3.4...v1.4.0
+[1.3.4]: https://github.com/FlazeIGuess/unitune/compare/v1.3.3...v1.3.4
+[1.3.3]: https://github.com/FlazeIGuess/unitune/compare/v1.3.2...v1.3.3
+[1.3.2]: https://github.com/FlazeIGuess/unitune/compare/v1.3.1...v1.3.2
+[1.3.1]: https://github.com/FlazeIGuess/unitune/compare/v1.3.0...v1.3.1
+[1.3.0]: https://github.com/FlazeIGuess/unitune/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/FlazeIGuess/unitune/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/FlazeIGuess/unitune/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/FlazeIGuess/unitune/releases/tag/v1.0.0

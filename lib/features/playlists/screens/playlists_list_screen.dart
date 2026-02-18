@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/dynamic_theme.dart';
 import '../../../core/widgets/optimized_liquid_glass.dart';
 import '../../../core/widgets/primary_button.dart';
+import '../../../core/widgets/unitune_header.dart';
 import '../../../data/models/mini_playlist.dart';
 import '../../../data/repositories/playlist_repository.dart';
 import '../widgets/playlist_preview_card.dart';
@@ -66,6 +67,7 @@ class _PlaylistsListScreenState extends ConsumerState<PlaylistsListScreen> {
               child: Column(
                 children: [
                   _buildHeader(context),
+                  SizedBox(height: AppTheme.spacing.m),
                   Padding(
                     padding: EdgeInsets.symmetric(
                       horizontal: AppTheme.spacing.m,
@@ -117,26 +119,23 @@ class _PlaylistsListScreenState extends ConsumerState<PlaylistsListScreen> {
 
   Widget _buildHeader(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.all(AppTheme.spacing.l),
-      child: Row(
-        children: [
-          Text(
-            'Mini-Playlists',
-            style: AppTheme.typography.titleLarge.copyWith(
-              color: AppTheme.colors.textPrimary,
-              fontFamily: 'ZalandoSansExpanded',
-            ),
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            color: AppTheme.colors.textSecondary,
-            onPressed: () {
-              HapticFeedback.mediumImpact();
-              _showInfoDialog(context);
-            },
-          ),
-        ],
+      padding: EdgeInsets.fromLTRB(
+        AppTheme.spacing.l,
+        AppTheme.spacing.l,
+        AppTheme.spacing.l,
+        AppTheme.spacing.s,
+      ),
+      child: UniTuneHeader(
+        action: IconButton(
+          icon: const Icon(Icons.help_outline),
+          color: AppTheme.colors.textSecondary,
+          iconSize: 24,
+          tooltip: 'Show info',
+          onPressed: () {
+            HapticFeedback.mediumImpact();
+            _showInfoDialog(context);
+          },
+        ),
       ),
     );
   }

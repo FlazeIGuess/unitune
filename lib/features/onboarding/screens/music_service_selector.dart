@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:io' show Platform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/dynamic_theme.dart';
@@ -10,6 +10,8 @@ import '../../../core/widgets/brand_logo.dart';
 import '../../../core/widgets/optimized_liquid_glass.dart';
 import '../../../core/constants/services.dart';
 import '../../settings/preferences_manager.dart';
+import '../widgets/onboarding_progress_bar.dart';
+import '../widgets/onboarding_navigation_buttons.dart';
 
 /// Music Service Selection Screen - Step 2 of onboarding
 ///
@@ -19,8 +21,13 @@ import '../../settings/preferences_manager.dart';
 /// Validates: Requirements 12.1, 12.2, 12.3, 12.5, 17.1
 class MusicServiceSelector extends ConsumerStatefulWidget {
   final VoidCallback onContinue;
+  final VoidCallback onBack;
 
-  const MusicServiceSelector({super.key, required this.onContinue});
+  const MusicServiceSelector({
+    super.key,
+    required this.onContinue,
+    required this.onBack,
+  });
 
   @override
   ConsumerState<MusicServiceSelector> createState() =>
@@ -126,12 +133,12 @@ class _MusicServiceSelectorState extends ConsumerState<MusicServiceSelector>
             child: SafeArea(
               child: FadeTransition(
                 opacity: _fadeIn,
-                child: SingleChildScrollView(
+                child: Padding(
                   padding: EdgeInsets.fromLTRB(
                     AppTheme.spacing.xl,
                     AppTheme.spacing.xl,
                     AppTheme.spacing.xl,
-                    120, // Extra padding for floating button
+                    0,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,41 +146,66 @@ class _MusicServiceSelectorState extends ConsumerState<MusicServiceSelector>
                       // Progress indicator
                       _buildProgressIndicator(),
                       SizedBox(height: AppTheme.spacing.xl),
+
+                      // Title
                       Text(
-                        'Choose your music app',
+                        'Which music app do you use?',
                         style: Theme.of(context).textTheme.headlineMedium
                             ?.copyWith(
                               color: AppTheme.colors.textPrimary,
                               fontWeight: FontWeight.bold,
+                              fontFamily: 'ZalandoSansExpanded',
                             ),
                       ),
                       SizedBox(height: AppTheme.spacing.s),
+
+                      // Description
                       Text(
-                        'Select your preferred music streaming service. You can change this later in settings.',
+                        'We\'ll convert all shared links to open in your app',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           color: AppTheme.colors.textSecondary,
                         ),
                       ),
                       SizedBox(height: AppTheme.spacing.xl),
-                      // Service options
-                      _buildServiceOption(MusicService.spotify),
-                      SizedBox(height: AppTheme.spacing.m),
-                      _buildServiceOption(MusicService.appleMusic),
-                      SizedBox(height: AppTheme.spacing.m),
-                      _buildServiceOption(MusicService.tidal),
-                      SizedBox(height: AppTheme.spacing.m),
-                      _buildServiceOption(MusicService.youtubeMusic),
-                      SizedBox(height: AppTheme.spacing.m),
-                      _buildServiceOption(MusicService.deezer),
-                      SizedBox(height: AppTheme.spacing.m),
-                      _buildServiceOption(MusicService.amazonMusic),
+
+                      // Service options with dynamic height
+                      Expanded(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final services = MusicService.values;
+                            final spacing = AppTheme.spacing.m;
+                            final totalSpacing =
+                                spacing * (services.length - 1);
+                            final buttonPadding =
+                                100.0; // Bottom padding for nav buttons
+                            final availableHeight =
+                                constraints.maxHeight -
+                                totalSpacing -
+                                buttonPadding;
+                            final itemHeight =
+                                availableHeight / services.length;
+
+                            return ListView.separated(
+                              itemCount: services.length,
+                              separatorBuilder: (context, index) =>
+                                  SizedBox(height: spacing),
+                              itemBuilder: (context, index) {
+                                return _buildServiceOption(
+                                  services[index],
+                                  itemHeight,
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
             ),
           ),
-          // Floating CTA Button - Bottom Nav style
+          // Floating Navigation Buttons
           Positioned(
             left: 0,
             right: 0,
@@ -182,7 +214,11 @@ class _MusicServiceSelectorState extends ConsumerState<MusicServiceSelector>
               top: false,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-                child: _buildFloatingButton(),
+                child: OnboardingNavigationButtons(
+                  onBack: widget.onBack,
+                  onContinue: _handleContinue,
+                  isEnabled: _selectedService != null,
+                ),
               ),
             ),
           ),
@@ -191,96 +227,17 @@ class _MusicServiceSelectorState extends ConsumerState<MusicServiceSelector>
     );
   }
 
-  Widget _buildFloatingButton() {
-    final isEnabled = _selectedService != null;
-
-    return LiquidGlass.withOwnLayer(
-      settings: const LiquidGlassSettings(
-        blur: 12,
-        ambientStrength: 0.5,
-        glassColor: Color(0x18FFFFFF),
-        thickness: 12,
-        lightIntensity: 0.5,
-        saturation: 1.3,
-        refractiveIndex: 1.15,
-      ),
-      shape: LiquidRoundedSuperellipse(borderRadius: 32),
-      child: GestureDetector(
-        onTap: isEnabled
-            ? () {
-                HapticFeedback.lightImpact();
-                _handleContinue();
-              }
-            : null,
-        child: Container(
-          height: 60,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.1),
-              width: 0.5,
-            ),
-          ),
-          child: Center(
-            child: Opacity(
-              opacity: isEnabled ? 1.0 : 0.5,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Continue',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(Icons.arrow_forward, color: Colors.white, size: 20),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildProgressIndicator() {
-    const totalSlides = 3;
+    final totalSlides = Platform.isAndroid ? 4 : 3;
     const slideIndex = 1; // Music Service is step 2 (index 1)
 
-    return Row(
-      children: List.generate(totalSlides, (index) {
-        final isActive = index == slideIndex;
-        return Expanded(
-          child: Container(
-            height: 4,
-            margin: EdgeInsets.only(
-              right: index < totalSlides - 1 ? AppTheme.spacing.xs : 0,
-            ),
-            decoration: BoxDecoration(
-              gradient: isActive
-                  ? LinearGradient(
-                      colors: [
-                        context.primaryColor,
-                        context.primaryColor.withValues(alpha: 0.7),
-                      ],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    )
-                  : null,
-              color: isActive ? null : AppTheme.colors.backgroundCard,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        );
-      }),
+    return OnboardingProgressBar(
+      currentStep: slideIndex,
+      totalSteps: totalSlides,
     );
   }
 
-  Widget _buildServiceOption(MusicService service) {
+  Widget _buildServiceOption(MusicService service, double height) {
     final isSelected = _selectedService == service;
 
     return GestureDetector(
@@ -300,7 +257,8 @@ class _MusicServiceSelectorState extends ConsumerState<MusicServiceSelector>
             ? AppTheme.colors.glassBorder.withValues(alpha: 0.3)
             : AppTheme.colors.glassBorder.withValues(alpha: 0.15),
         child: Container(
-          padding: EdgeInsets.all(AppTheme.spacing.m),
+          height: height.clamp(60.0, 80.0), // Min 60, Max 80
+          padding: EdgeInsets.symmetric(horizontal: AppTheme.spacing.m),
           decoration: BoxDecoration(
             border: isSelected
                 ? Border.all(color: context.primaryColor, width: 2)
@@ -309,7 +267,10 @@ class _MusicServiceSelectorState extends ConsumerState<MusicServiceSelector>
           ),
           child: Row(
             children: [
-              BrandLogo.music(service: service, size: 48),
+              BrandLogo.music(
+                service: service,
+                size: (height * 0.5).clamp(32.0, 48.0),
+              ),
               SizedBox(width: AppTheme.spacing.m),
               Expanded(
                 child: Text(

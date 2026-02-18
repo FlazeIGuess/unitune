@@ -83,14 +83,14 @@ enum MessengerService {
   ),
   sms(
     name: 'SMS / iMessage',
-    icon: '💬',
+    icon: '💬', // Fallback emoji, actual icon in BrandLogo
     packageAndroid: 'com.android.mms',
     urlScheme: 'sms:?body=',
     color: 0xFF34C759,
   ),
   systemShare(
     name: 'System Share',
-    icon: '📤',
+    icon: '📤', // Fallback emoji, actual icon in BrandLogo
     packageAndroid: '',
     urlScheme: '',
     color: 0xFF757575,
