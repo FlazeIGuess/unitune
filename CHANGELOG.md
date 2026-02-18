@@ -115,7 +115,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Processing navigation unified through GoRouter with mode-based routing
-- Liquid glass layers upgraded to performance-optimized rendering on key screens
+- Glass layers upgraded to performance-optimized rendering on key screens
 
 ### Fixed
 
@@ -135,7 +135,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - AdMob helper class with clear production/testing toggle
 - Ad placement optimized for user experience
-- Liquid Glass design integration for ad containers
+- Glass design integration for ad containers
 
 ## [1.3.1] - 2026-02-03
 
@@ -294,7 +294,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sharing statistics with interactive graphs
 - History tracking with search and filtering
 - Dynamic color theming based on album artwork
-- Liquid glass UI effects
+- Glass UI effects
 - Dark theme optimized design
 - Onboarding flow for first-time users
 - Settings for preferred services

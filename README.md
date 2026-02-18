@@ -17,7 +17,7 @@
 
 ## What is UniTune?
 
-UniTune eliminates the frustration of incompatible music links. When a friend shares a Spotify link but you use Apple Music, UniTune instantly converts it to your preferred platform. Built with Flutter and featuring a liquid glass design, UniTune makes cross-platform music sharing effortless while keeping your data completely private.
+UniTune eliminates the frustration of incompatible music links. When a friend shares a Spotify link but you use Apple Music, UniTune instantly converts it to your preferred platform. Built with Flutter and featuring a glass design, UniTune makes cross-platform music sharing effortless while keeping your data completely private.
 
 ## Screenshots
 
@@ -58,7 +58,7 @@ Album artwork automatically influences the entire app color scheme for every son
 ### History & Analytics
 Full history of converted links with statistics on platform usage, sharing frequency, and trends over adjustable time periods.
 
-### Modern Liquid Glass Design
+### Modern Glass Design
 Glassmorphism UI with smooth animations throughout every screen, consistent with modern Android and iOS design language.
 
 ## Supported Platforms
@@ -227,7 +227,7 @@ lib/
 │   ├── security/           # URL validation, input sanitization
 │   ├── theme/              # Dynamic theming, color extraction
 │   ├── utils/              # Helpers, logging, responsive utilities
-│   └── widgets/            # Reusable UI components (liquid glass, buttons)
+│   └── widgets/            # Reusable UI components (glass, buttons)
 │
 ├── data/                    # Data layer
 │   ├── models/             # Data models (HistoryEntry, MiniPlaylist, etc.)
@@ -252,7 +252,7 @@ lib/
 | Navigation | GoRouter 14.8.1 | Declarative routing & deep links |
 | Local Storage | SharedPreferences 2.3.5 | Persistent key-value storage |
 | Networking | HTTP 1.3.0 | API communication |
-| UI Effects | Liquid Glass Renderer 0.2.0 | Glassmorphism effects |
+| UI Effects | Glass Renderer 0.2.0 | Glassmorphism effects |
 | Charts | FL Chart 0.69.0 | Statistics visualization |
 | Color Extraction | Palette Generator 0.3.3 | Dynamic theming from images || QR Codes | qr_flutter 4.1.0 | Playlist QR code generation |
 | Screenshots | screenshot 3.0.0 | Widget-to-image for share cards |
@@ -315,7 +315,7 @@ We welcome contributions from the community! Whether you're fixing bugs, adding 
 - Ensure CI/CD checks pass
 - Use English for all code, comments, and documentation
 - No emojis in code or documentation (use icons where appropriate)
-- Maintain the liquid glass design language
+- Maintain the glass design language
 
 ### Code Style
 
