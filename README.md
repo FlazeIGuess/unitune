@@ -11,6 +11,8 @@
   [![Flutter](https://img.shields.io/badge/Flutter-3.27.1-02569B?logo=flutter)](https://flutter.dev)
   [![Build Status](https://github.com/FlazeIGuess/unitune/workflows/Build%20Android%20APK/badge.svg)](https://github.com/FlazeIGuess/unitune/actions)
   [![Version](https://img.shields.io/badge/version-1.4.3-brightgreen.svg)](https://github.com/FlazeIGuess/unitune/releases)
+
+  [![Download APK](https://img.shields.io/badge/Download-APK-brightgreen?logo=android&logoColor=white)](https://github.com/FlazeIGuess/unitune/releases/latest)
 </div>
 
 ---
@@ -151,7 +153,7 @@ Glassmorphism UI with smooth animations throughout every screen, consistent with
 
 ### Quick Start
 
-1. Download and install UniTune from GitHub Releases
+1. Download the latest APK from [GitHub Releases](https://github.com/FlazeIGuess/unitune/releases/latest) and install it
 2. Open the app and complete the onboarding flow
 3. Select your preferred music streaming service
 4. Choose your favorite messaging apps for sharing
