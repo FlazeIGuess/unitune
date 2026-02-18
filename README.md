@@ -10,42 +10,61 @@
   [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
   [![Flutter](https://img.shields.io/badge/Flutter-3.27.1-02569B?logo=flutter)](https://flutter.dev)
   [![Build Status](https://github.com/FlazeIGuess/unitune/workflows/Build%20Android%20APK/badge.svg)](https://github.com/FlazeIGuess/unitune/actions)
-  [![Version](https://img.shields.io/badge/version-1.3.1-brightgreen.svg)](https://github.com/FlazeIGuess/unitune/releases)
+  [![Version](https://img.shields.io/badge/version-1.4.3-brightgreen.svg)](https://github.com/FlazeIGuess/unitune/releases)
 </div>
 
 ---
 
 ## What is UniTune?
 
-UniTune eliminates the frustration of incompatible music links. When a friend shares a Spotify link but you use Apple Music, UniTune instantly converts it to your preferred platform. Built with Flutter and featuring a stunning liquid glass design, UniTune makes cross-platform music sharing effortless while keeping your data completely private.
+UniTune eliminates the frustration of incompatible music links. When a friend shares a Spotify link but you use Apple Music, UniTune instantly converts it to your preferred platform. Built with Flutter and featuring a liquid glass design, UniTune makes cross-platform music sharing effortless while keeping your data completely private.
+
+## Screenshots
+
+<div align="center">
+<table>
+<tr>
+  <td align="center"><img src="assets/screenshots/unitune-playstore-services.png" width="220" alt="Services"/><br/><sub>Pick your platform</sub></td>
+  <td align="center"><img src="assets/screenshots/unitune-playstore-sharing.png" width="220" alt="Sharing"/><br/><sub>One-tap sharing</sub></td>
+  <td align="center"><img src="assets/screenshots/unitune-playstore-openlink.png" width="220" alt="Open Link"/><br/><sub>Link Interception</sub></td>
+  <td align="center"><img src="assets/screenshots/unitune-playstore-playlists.png" width="220" alt="Mini Playlists"/><br/><sub>Mini Playlists</sub></td>
+</tr>
+</table>
+</div>
 
 ## Key Features
 
 ### Universal Link Conversion
-Convert music links seamlessly between all major streaming platforms. Paste any music link and get instant access across Spotify, Apple Music, YouTube Music, Deezer, TIDAL, and Amazon Music.
+Paste any music link and UniTune converts it to all supported platforms in one request. Supports tracks, albums, artists, and playlists across Spotify, Apple Music, YouTube Music, Deezer, TIDAL, and Amazon Music.
 
-### Smart Sharing Integration
-Share directly to your favorite messaging apps with intelligent platform detection. UniTune integrates with WhatsApp, Telegram, Signal, SMS, and system share functionality for one-tap sharing.
+### One-Tap Sharing to Friends
+Hit share inside Spotify, Tidal, or any other streaming app, pick UniTune from the share sheet, and it converts the link and forwards it to your contact in a single flow. No copy-pasting, no app switching.
+
+### Music Link Interception (Android)
+Set UniTune as the default handler for music links on Android. When someone sends you a Spotify link in WhatsApp or anywhere else, tapping it opens the song directly in your preferred music app automatically.
+
+### Mini Playlists
+Build cross-platform playlists of 3 to 10 tracks from any streaming service. Share them as a single UniTune link or as a QR code with a visual share card. Anyone who opens the link can play each track on whichever service they use.
 
 ### Privacy-First Architecture
-Your data stays on your device. No accounts, no tracking, no cloud storage. UniTune operates entirely locally with zero data collection or external analytics.
+No accounts, no login, no analytics. All data stays on your device. The only outbound request is to the conversion API.
 
 ### Dynamic Visual Experience
-Watch the app transform with every song. Album artwork automatically influences the color scheme, creating a unique visual experience that adapts to your music taste.
+Album artwork automatically influences the entire app color scheme for every song you open. Every conversion looks different.
 
-### Comprehensive History & Analytics
-Track your sharing patterns with detailed statistics and trend graphs. View your most shared songs, favorite platforms, and sharing frequency over customizable time periods.
+### History & Analytics
+Full history of converted links with statistics on platform usage, sharing frequency, and trends over adjustable time periods.
 
 ### Modern Liquid Glass Design
-Experience a premium interface with smooth animations and glassmorphism effects. The fluid design language creates an immersive, Apple-inspired aesthetic across every screen.
+Glassmorphism UI with smooth animations throughout every screen, consistent with modern Android and iOS design language.
 
 ## Supported Platforms
 
 <table>
 <tr>
-<td width="50%" valign="top">
+<td width="33%" valign="top">
 
-### Music Streaming Services
+### Music Services
 
 | Platform | Status |
 |----------|--------|
@@ -57,7 +76,7 @@ Experience a premium interface with smooth animations and glassmorphism effects.
 | Amazon Music | ✓ Supported |
 
 </td>
-<td width="50%" valign="top">
+<td width="33%" valign="top">
 
 ### Sharing Channels
 
@@ -68,6 +87,20 @@ Experience a premium interface with smooth animations and glassmorphism effects.
 | Signal | ✓ Supported |
 | SMS / iMessage | ✓ Supported |
 | System Share | ✓ Supported |
+
+</td>
+<td width="33%" valign="top">
+
+### Content Types
+
+| Type | Status |
+|------|--------|
+| Tracks | ✓ Supported |
+| Albums | ✓ Supported |
+| Artists | ✓ Supported |
+| Playlists | ✓ Supported |
+| Mini Playlists | ✓ Supported |
+| QR Code Share | ✓ Supported |
 
 </td>
 </tr>
@@ -116,7 +149,8 @@ Experience a premium interface with smooth animations and glassmorphism effects.
 2. Open the app and complete the onboarding flow
 3. Select your preferred music streaming service
 4. Choose your favorite messaging apps for sharing
-5. Start converting and sharing music links
+5. On Android: enable Music Link Interception in the onboarding step or later in Settings
+6. Start converting and sharing music links
 
 ## Development Setup
 
@@ -184,6 +218,7 @@ flutter pub run build_runner build --delete-conflicting-outputs
 ```
 lib/
 ├── core/                    # Shared foundation
+│   ├── ads/                # AdMob configuration and helpers
 │   ├── animations/         # Page transitions, fade effects
 │   ├── constants/          # Service definitions, app constants
 │   ├── security/           # URL validation, input sanitization
@@ -192,15 +227,16 @@ lib/
 │   └── widgets/            # Reusable UI components (liquid glass, buttons)
 │
 ├── data/                    # Data layer
-│   ├── models/             # Data models (HistoryEntry, etc.)
-│   └── repositories/       # Data access (History, Cache, API)
+│   ├── models/             # Data models (HistoryEntry, MiniPlaylist, etc.)
+│   └── repositories/       # Data access (History, Cache, Playlists, API)
 │
 └── features/                # Feature modules
-    ├── home/               # Main conversion screen
+    ├── home/               # Main conversion screen with smart paste
     ├── history/            # Sharing history & statistics
+    ├── playlists/          # Mini Playlists (create, QR, import, share)
     ├── settings/           # App preferences & configuration
-    ├── onboarding/         # First-run experience
-    └── sharing/            # Share intent handling
+    ├── onboarding/         # First-run experience incl. link interception step
+    └── sharing/            # Share intent handling & processing screen
 ```
 
 ### Technology Stack
@@ -215,8 +251,10 @@ lib/
 | Networking | HTTP 1.3.0 | API communication |
 | UI Effects | Liquid Glass Renderer 0.2.0 | Glassmorphism effects |
 | Charts | FL Chart 0.69.0 | Statistics visualization |
-| Color Extraction | Palette Generator 0.3.3 | Dynamic theming from images |
-
+| Color Extraction | Palette Generator 0.3.3 | Dynamic theming from images || QR Codes | qr_flutter 4.1.0 | Playlist QR code generation |
+| Screenshots | screenshot 3.0.0 | Widget-to-image for share cards |
+| Image Processing | image 4.1.7 | Cover art collage generation |
+| Monetization | Google Mobile Ads 5.2.0 | AdMob integration |
 ### Design Patterns
 
 - **Feature-First Architecture**: Organized by features rather than layers
@@ -322,11 +360,19 @@ Any use, modification, or distribution of this software must include proper attr
 - UI design inspired by modern glassmorphism trends
 - Built with Flutter and Riverpod
 
-## Support
+## Support the Project
+
+UniTune is free and open source. If you find it useful, consider supporting development to help cover infrastructure costs and the Apple Developer fee for the upcoming iOS release.
+
+[![Ko-fi](https://img.shields.io/badge/Support%20on-Ko--fi-FF5E5B?logo=ko-fi)](https://ko-fi.com/unitune)
+
+**Want to test the beta?** Apply here: [Beta Tester Form](https://forms.gle/k2HPCNpEYtdeVZpz5)
+
+### Other Support Channels
 
 - **Issues**: [GitHub Issues](https://github.com/FlazeIGuess/unitune/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/FlazeIGuess/unitune/discussions)
 
 ---
 
-Made with Love ❤️
+Made with care by [FlazeIGuess](https://github.com/FlazeIGuess)
