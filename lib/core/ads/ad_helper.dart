@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 /// Helper class for AdMob configuration
 /// Manages ad unit IDs for different platforms and environments
@@ -6,6 +7,12 @@ class AdHelper {
   static const bool adsEnabled = true;
   // Test mode - using Google's test ad units for development
   static const bool _useTesting = false;
+
+  /// Default AdRequest for all ad placements.
+  /// Always non-personalized: no GAID, no behavioral profiling.
+  /// GDPR-compliant without a consent dialog (EEA contextual-ads exemption).
+  static AdRequest get defaultRequest =>
+      const AdRequest(nonPersonalizedAds: true);
 
   /// Native Ad Unit ID
   /// Used for native ads in history list

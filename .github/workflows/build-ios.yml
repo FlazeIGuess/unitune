@@ -1,5 +1,7 @@
 name: Build iOS IPA
 
+# CI build on every push to main/develop.
+# Produces an unsigned IPA with the 'appstore' distribution channel defined.
 on:
   push:
     branches: [ main, develop ]
@@ -31,9 +33,9 @@ jobs:
     - name: Analyze code
       run: flutter analyze --no-fatal-infos --no-fatal-warnings
       
-    - name: Build iOS (No Codesign)
+    - name: Build iOS unsigned (App Store channel)
       run: |
-        flutter build ios --release --no-codesign
+        flutter build ios --release --no-codesign --dart-define=DISTRIBUTION_CHANNEL=appstore
       
     - name: Create IPA (Unsigned)
       run: |

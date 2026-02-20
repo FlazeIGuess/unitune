@@ -5,6 +5,50 @@ All notable changes to UniTune will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-02-20
+
+### What's New
+<!-- 2-4 user-facing highlights shown in the app's What's New sheet.           -->
+<!-- Format: - [material_icon_name] Short Title — One sentence description.    -->
+- [system_update] Update Notifications — UniTune zeigt dir jetzt an, wenn eine neue Version verfügbar ist.
+- [auto_awesome] What's New — Nach jedem Update siehst du einmalig die wichtigsten Neuerungen.
+- [rocket_launch] Schnellere Releases — Neue Versionen werden automatisch gebaut und veröffentlicht.
+- [privacy_tip] Privacy First — Der Update-Check sendet keine Nutzerdaten, nur eine anonyme Versions-Anfrage.
+
+### Added
+
+- Automatic version check on app start: fetches latest version info from `unitune.art/api/version`
+- Update banner above bottom navigation bar when a newer version is available — channel-aware (Play Store / GitHub / App Store)
+- "What's New" bottom sheet shown once per app update, populated from the CHANGELOG
+- Users can dismiss the update banner permanently for a specific version
+- Cloudflare Worker endpoint `/api/version` serving version metadata and What's New content, CDN-cached for 5 minutes
+- Automated GitHub Actions CI pipeline: pushing a `vX.Y.Z` tag automatically builds APK, publishes a GitHub Release, and deploys the worker with updated What's New data
+- `package_info_plus` integration for reliable local version detection
+- GDPR compliance: Google User Messaging Platform (UMP) SDK integrated — EEA/UK users see a native consent dialog before any ad is loaded (Art. 6(1)(a) GDPR)
+- "Manage Ad Consent" button in Settings — allows EEA/UK users to update their advertising preferences at any time (GDPR consent withdrawal)
+- Consent guard on RewardedAd loading — ads are only loaded after consent is confirmed
+- `AdHelper.defaultRequest` central getter enforcing `nonPersonalizedAds: true` on all ad placements — single source of truth for ad privacy configuration
+- Montserrat font integrated as local asset (`assets/fonts/`) — no external font requests at runtime
+
+### Fixed
+
+- Onboarding screens layout issues on small screens with low dp: music service and messenger selector lists now properly scrollable with fixed navigation buttons
+- Link interception screen now fully scrollable with all content accessible on small devices
+- Continue/navigation buttons no longer overlap list items during onboarding flow
+
+### Changed
+
+- Release workflow simplified: APK is built and published automatically via CI, AAB for Play Store is still built locally
+- Music service selector: replaced dynamic height calculation with fixed 70px items and scrollable list
+- Messenger selector: replaced dynamic height calculation with fixed 70px items and scrollable list
+- Link interception screen: restructured layout with scrollable content area and fixed bottom buttons, cards adapt padding based on screen size
+- Link interception explanation: updated steps to clarify the automatic link opening workflow
+- Privacy Policy updated: clarified IP address handling, ad consent withdrawal, playlist retention (180 days), and legal basis for all data processing
+- `android.permission.AD_ID` removed from AndroidManifest — no Google Advertising ID (GAID) accessed or transmitted
+- `NSUserTrackingUsageDescription` (iOS) corrected to accurately reflect contextual-only ad delivery
+- `google_fonts` dependency removed — body and label text now uses local assets, eliminating HTTP calls to `fonts.googleapis.com` on first launch
+- Marketing copy corrected in onboarding and settings: replaced "no tracking, completely private" with accurate statement about contextual-only ads
+
 ## [1.4.4] - 2026-02-18
 
 ### Added
@@ -316,7 +360,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deep linking support
 - Share intent handling
 
-[Unreleased]: https://github.com/FlazeIGuess/unitune/compare/v1.4.4...HEAD
+[Unreleased]: https://github.com/FlazeIGuess/unitune/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/FlazeIGuess/unitune/compare/v1.4.4...v1.5.0
 [1.4.4]: https://github.com/FlazeIGuess/unitune/compare/v1.4.3...v1.4.4
 [1.4.3]: https://github.com/FlazeIGuess/unitune/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/FlazeIGuess/unitune/compare/v1.4.1...v1.4.2

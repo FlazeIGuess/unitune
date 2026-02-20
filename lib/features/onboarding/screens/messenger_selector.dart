@@ -182,35 +182,25 @@ class _MessengerSelectorState extends ConsumerState<MessengerSelector>
                       ),
                       SizedBox(height: AppTheme.spacing.xl),
 
-                      // Messenger options with dynamic height
+                      // Messenger options with scrolling
                       Expanded(
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            final messengers = MessengerService.values;
-                            final spacing = AppTheme.spacing.m;
-                            final totalSpacing =
-                                spacing * (messengers.length - 1);
-                            final buttonPadding =
-                                100.0; // Bottom padding for nav buttons
-                            final availableHeight =
-                                constraints.maxHeight -
-                                totalSpacing -
-                                buttonPadding;
-                            final itemHeight =
-                                availableHeight / messengers.length;
-
-                            return ListView.separated(
-                              itemCount: messengers.length,
-                              separatorBuilder: (context, index) =>
-                                  SizedBox(height: spacing),
-                              itemBuilder: (context, index) {
-                                return _buildMessengerOption(
-                                  messengers[index],
-                                  itemHeight,
-                                );
-                              },
-                            );
-                          },
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.only(bottom: 100),
+                          child: Column(
+                            children: [
+                              for (
+                                int i = 0;
+                                i < MessengerService.values.length;
+                                i++
+                              ) ...[
+                                _buildMessengerOption(
+                                  MessengerService.values[i],
+                                ),
+                                if (i < MessengerService.values.length - 1)
+                                  SizedBox(height: AppTheme.spacing.m),
+                              ],
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -252,7 +242,7 @@ class _MessengerSelectorState extends ConsumerState<MessengerSelector>
     );
   }
 
-  Widget _buildMessengerOption(MessengerService messenger, double height) {
+  Widget _buildMessengerOption(MessengerService messenger) {
     final isSelected = _selectedMessenger == messenger;
 
     return GestureDetector(
@@ -272,7 +262,7 @@ class _MessengerSelectorState extends ConsumerState<MessengerSelector>
             ? AppTheme.colors.glassBorder.withValues(alpha: 0.3)
             : AppTheme.colors.glassBorder.withValues(alpha: 0.15),
         child: Container(
-          height: height.clamp(60.0, 80.0), // Min 60, Max 80
+          height: 70,
           padding: EdgeInsets.symmetric(horizontal: AppTheme.spacing.m),
           decoration: BoxDecoration(
             border: isSelected
@@ -282,10 +272,7 @@ class _MessengerSelectorState extends ConsumerState<MessengerSelector>
           ),
           child: Row(
             children: [
-              BrandLogo.messenger(
-                service: messenger,
-                size: (height * 0.5).clamp(32.0, 48.0),
-              ),
+              BrandLogo.messenger(service: messenger, size: 40),
               SizedBox(width: AppTheme.spacing.m),
               Expanded(
                 child: Text(

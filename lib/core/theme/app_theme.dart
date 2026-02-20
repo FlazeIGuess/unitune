@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'dart:ui';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
@@ -445,37 +444,43 @@ class AppTheme {
         onSecondary: colors.backgroundDeep,
         onSurface: colors.textPrimary,
       ),
-      textTheme: GoogleFonts.poppinsTextTheme(
-        TextTheme(
-          // Display (32-40px)
-          // Display (32-40px)
-          displayLarge: typography.displayLarge.copyWith(
-            color: colors.textPrimary,
-            fontFamily: 'ZalandoSansExpanded',
-          ),
-          displayMedium: typography.displayMedium.copyWith(
-            color: colors.textPrimary,
-            fontFamily: 'ZalandoSansExpanded',
-          ),
-          // Title (20-24px)
-          titleLarge: typography.titleLarge.copyWith(
-            color: colors.textPrimary,
-            fontFamily: 'ZalandoSansExpanded',
-          ),
-          titleMedium: typography.titleMedium.copyWith(
-            color: colors.textPrimary,
-            fontFamily: 'ZalandoSansExpanded',
-          ),
-          // Body (14-16px) - Keep Poppins (inherited from textTheme wrapper)
-          bodyLarge: typography.bodyLarge.copyWith(color: colors.textSecondary),
-          bodyMedium: typography.bodyMedium.copyWith(
-            color: colors.textSecondary,
-          ),
-          // Label (12-14px) - Keep Poppins
-          labelLarge: typography.labelLarge.copyWith(color: colors.textPrimary),
-          labelMedium: typography.labelMedium.copyWith(
-            color: colors.textSecondary,
-          ),
+      textTheme: TextTheme(
+        // Display (32-40px)
+        // Display (32-40px)
+        displayLarge: typography.displayLarge.copyWith(
+          color: colors.textPrimary,
+          fontFamily: 'ZalandoSansExpanded',
+        ),
+        displayMedium: typography.displayMedium.copyWith(
+          color: colors.textPrimary,
+          fontFamily: 'ZalandoSansExpanded',
+        ),
+        // Title (20-24px)
+        titleLarge: typography.titleLarge.copyWith(
+          color: colors.textPrimary,
+          fontFamily: 'ZalandoSansExpanded',
+        ),
+        titleMedium: typography.titleMedium.copyWith(
+          color: colors.textPrimary,
+          fontFamily: 'ZalandoSansExpanded',
+        ),
+        // Body (14-16px) - Montserrat (local asset, no external requests)
+        bodyLarge: typography.bodyLarge.copyWith(
+          color: colors.textSecondary,
+          fontFamily: 'Montserrat',
+        ),
+        bodyMedium: typography.bodyMedium.copyWith(
+          color: colors.textSecondary,
+          fontFamily: 'Montserrat',
+        ),
+        // Label (12-14px) - Montserrat
+        labelLarge: typography.labelLarge.copyWith(
+          color: colors.textPrimary,
+          fontFamily: 'Montserrat',
+        ),
+        labelMedium: typography.labelMedium.copyWith(
+          color: colors.textSecondary,
+          fontFamily: 'Montserrat',
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -488,7 +493,8 @@ class AppTheme {
           ),
           elevation: 0,
           shadowColor: Colors.transparent,
-          textStyle: GoogleFonts.poppins(
+          textStyle: const TextStyle(
+            fontFamily: 'Montserrat',
             fontSize: 16,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.5,

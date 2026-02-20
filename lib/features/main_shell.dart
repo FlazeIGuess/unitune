@@ -6,6 +6,9 @@ import 'home/home_screen.dart';
 import 'history/history_screen.dart';
 import 'playlists/screens/playlists_list_screen.dart';
 import 'settings/settings_screen.dart';
+import 'version/version_notifier.dart';
+import 'version/whats_new_sheet.dart';
+import 'version/update_banner.dart';
 
 /// Provider for current navigation index
 final mainShellIndexProvider = StateProvider<int>((ref) => 0);
@@ -58,6 +61,20 @@ class _MainShellState extends ConsumerState<MainShell>
   Widget build(BuildContext context) {
     final currentIndex = ref.watch(mainShellIndexProvider);
 
+    // Show What's New sheet once after each app update.
+    // ref.listen fires whenever the async state transitions and is safe for
+    // side effects that show UI (posting frame callbacks to avoid build phase).
+    ref.listen<AsyncValue<VersionState>>(versionNotifierProvider, (prev, next) {
+      final prevShow = prev?.valueOrNull?.showWhatsNew ?? false;
+      final nextShow = next.valueOrNull?.showWhatsNew ?? false;
+      if (!prevShow && nextShow) {
+        // Defer until after the current frame so build phase is complete.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) WhatsNewSheet.show(context);
+        });
+      }
+    });
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
@@ -88,34 +105,41 @@ class _MainShellState extends ConsumerState<MainShell>
             },
             child: _buildCurrentScreen(currentIndex),
           ),
-          // Floating bottom navigation
+          // Update banner + bottom navigation stacked together.
+          // Placing both in a Column avoids hardcoding the nav bar height.
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: LiquidGlassBottomNav(
-              currentIndex: currentIndex,
-              onTap: _handleNavigation,
-              items: const [
-                BottomNavItem(
-                  icon: Icons.home_outlined,
-                  activeIcon: Icons.home,
-                  label: 'Home',
-                ),
-                BottomNavItem(
-                  icon: Icons.history_outlined,
-                  activeIcon: Icons.history,
-                  label: 'History',
-                ),
-                BottomNavItem(
-                  icon: Icons.queue_music_outlined,
-                  activeIcon: Icons.queue_music,
-                  label: 'Playlists',
-                ),
-                BottomNavItem(
-                  icon: Icons.settings_outlined,
-                  activeIcon: Icons.settings,
-                  label: 'Settings',
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const UpdateBanner(),
+                LiquidGlassBottomNav(
+                  currentIndex: currentIndex,
+                  onTap: _handleNavigation,
+                  items: const [
+                    BottomNavItem(
+                      icon: Icons.home_outlined,
+                      activeIcon: Icons.home,
+                      label: 'Home',
+                    ),
+                    BottomNavItem(
+                      icon: Icons.history_outlined,
+                      activeIcon: Icons.history,
+                      label: 'History',
+                    ),
+                    BottomNavItem(
+                      icon: Icons.queue_music_outlined,
+                      activeIcon: Icons.queue_music,
+                      label: 'Playlists',
+                    ),
+                    BottomNavItem(
+                      icon: Icons.settings_outlined,
+                      activeIcon: Icons.settings,
+                      label: 'Settings',
+                    ),
+                  ],
                 ),
               ],
             ),

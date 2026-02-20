@@ -46,7 +46,7 @@ class _PlaylistPostCreateScreenState
     _isAdLoading = true;
     RewardedAd.load(
       adUnitId: AdHelper.rewardedAdUnitId,
-      request: const AdRequest(),
+      request: AdHelper.defaultRequest,
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
           _rewardedAd = ad;
@@ -222,7 +222,8 @@ class _PlaylistPostCreateScreenState
                             SizedBox(height: AppTheme.spacing.xl),
                             PrimaryButton(
                               label: 'Share Playlist',
-                              onPressed: () => _sharePlaylist(context, playlist),
+                              onPressed: () =>
+                                  _sharePlaylist(context, playlist),
                               icon: Icons.share,
                             ),
                             SizedBox(height: AppTheme.spacing.m),

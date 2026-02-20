@@ -168,35 +168,23 @@ class _MusicServiceSelectorState extends ConsumerState<MusicServiceSelector>
                       ),
                       SizedBox(height: AppTheme.spacing.xl),
 
-                      // Service options with dynamic height
+                      // Service options with scrolling
                       Expanded(
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            final services = MusicService.values;
-                            final spacing = AppTheme.spacing.m;
-                            final totalSpacing =
-                                spacing * (services.length - 1);
-                            final buttonPadding =
-                                100.0; // Bottom padding for nav buttons
-                            final availableHeight =
-                                constraints.maxHeight -
-                                totalSpacing -
-                                buttonPadding;
-                            final itemHeight =
-                                availableHeight / services.length;
-
-                            return ListView.separated(
-                              itemCount: services.length,
-                              separatorBuilder: (context, index) =>
-                                  SizedBox(height: spacing),
-                              itemBuilder: (context, index) {
-                                return _buildServiceOption(
-                                  services[index],
-                                  itemHeight,
-                                );
-                              },
-                            );
-                          },
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.only(bottom: 100),
+                          child: Column(
+                            children: [
+                              for (
+                                int i = 0;
+                                i < MusicService.values.length;
+                                i++
+                              ) ...[
+                                _buildServiceOption(MusicService.values[i]),
+                                if (i < MusicService.values.length - 1)
+                                  SizedBox(height: AppTheme.spacing.m),
+                              ],
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -237,7 +225,7 @@ class _MusicServiceSelectorState extends ConsumerState<MusicServiceSelector>
     );
   }
 
-  Widget _buildServiceOption(MusicService service, double height) {
+  Widget _buildServiceOption(MusicService service) {
     final isSelected = _selectedService == service;
 
     return GestureDetector(
@@ -257,7 +245,7 @@ class _MusicServiceSelectorState extends ConsumerState<MusicServiceSelector>
             ? AppTheme.colors.glassBorder.withValues(alpha: 0.3)
             : AppTheme.colors.glassBorder.withValues(alpha: 0.15),
         child: Container(
-          height: height.clamp(60.0, 80.0), // Min 60, Max 80
+          height: 70,
           padding: EdgeInsets.symmetric(horizontal: AppTheme.spacing.m),
           decoration: BoxDecoration(
             border: isSelected
@@ -267,10 +255,7 @@ class _MusicServiceSelectorState extends ConsumerState<MusicServiceSelector>
           ),
           child: Row(
             children: [
-              BrandLogo.music(
-                service: service,
-                size: (height * 0.5).clamp(32.0, 48.0),
-              ),
+              BrandLogo.music(service: service, size: 40),
               SizedBox(width: AppTheme.spacing.m),
               Expanded(
                 child: Text(

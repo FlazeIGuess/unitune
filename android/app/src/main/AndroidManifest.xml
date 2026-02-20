@@ -2,8 +2,8 @@
     <!-- Internet permission for API calls -->
     <uses-permission android:name="android.permission.INTERNET"/>
     
-    <!-- Advertising ID permission (required for AdMob on Android 13+) -->
-    <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
+    <!-- AD_ID permission intentionally omitted: UniTune uses non-personalized ads only.
+         No Advertising ID (GAID) is collected or transmitted. GDPR/privacy compliant. -->
     
     <application
         android:label="UniTune"
@@ -74,14 +74,7 @@
                 <data android:scheme="https" android:host="open.spotify.com"/>
             </intent-filter>
             
-            <!-- MUSIC LINK INTERCEPTION: Spotify (spotify.link) -->
-            <intent-filter android:autoVerify="false">
-                <action android:name="android.intent.action.VIEW"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-                <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="https" android:host="spotify.link"/>
-            </intent-filter>
-            
+
             <!-- MUSIC LINK INTERCEPTION: Apple Music -->
             <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW"/>
@@ -114,14 +107,7 @@
                 <data android:scheme="https" android:host="music.youtube.com"/>
             </intent-filter>
             
-            <!-- MUSIC LINK INTERCEPTION: YouTube (youtu.be) -->
-            <intent-filter android:autoVerify="false">
-                <action android:name="android.intent.action.VIEW"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-                <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="https" android:host="youtu.be"/>
-            </intent-filter>
-            
+
             <!-- MUSIC LINK INTERCEPTION: Deezer (deezer.com) -->
             <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW"/>

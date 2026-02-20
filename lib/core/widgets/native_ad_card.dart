@@ -42,7 +42,7 @@ class _NativeAdCardState extends State<NativeAdCard> {
       adUnitId: AdHelper.nativeAdUnitId,
       factoryId:
           'liquidGlassNative', // Custom template (defined in native code)
-      request: const AdRequest(),
+      request: AdHelper.defaultRequest,
       listener: NativeAdListener(
         onAdLoaded: (_) {
           if (mounted) {

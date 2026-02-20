@@ -163,6 +163,9 @@ class _LinkInterceptionScreenState extends ConsumerState<LinkInterceptionScreen>
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenHeight < 700;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
@@ -179,84 +182,117 @@ class _LinkInterceptionScreenState extends ConsumerState<LinkInterceptionScreen>
             child: SafeArea(
               child: FadeTransition(
                 opacity: _fadeIn,
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    AppTheme.spacing.xl,
-                    AppTheme.spacing.xl,
-                    AppTheme.spacing.xl,
-                    100,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Progress indicator
-                      _buildProgressIndicator(),
-                      SizedBox(height: AppTheme.spacing.xl),
-
-                      // Title
-                      Text(
-                        'Open music links directly',
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(
-                              color: AppTheme.colors.textPrimary,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'ZalandoSansExpanded',
-                            ),
+                child: Column(
+                  children: [
+                    // Header section (non-scrollable)
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        AppTheme.spacing.xl,
+                        AppTheme.spacing.xl,
+                        AppTheme.spacing.xl,
+                        0,
                       ),
-                      SizedBox(height: AppTheme.spacing.s),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Progress indicator
+                          _buildProgressIndicator(),
+                          SizedBox(height: AppTheme.spacing.xl),
 
-                      // Description
-                      Text(
-                        'UniTune can intercept music links from other apps and convert them automatically',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: AppTheme.colors.textSecondary,
-                        ),
-                      ),
-
-                      Spacer(),
-
-                      // Visual Example
-                      _buildInterceptionExample(context),
-
-                      SizedBox(height: AppTheme.spacing.xl),
-
-                      // How it works
-                      _buildHowItWorks(),
-
-                      Spacer(),
-
-                      // Enable Button
-                      _buildEnableButton(),
-
-                      SizedBox(height: AppTheme.spacing.m),
-
-                      // Info text
-                      Center(
-                        child: Text(
-                          'You can change this later in settings',
-                          style: AppTheme.typography.bodyMedium.copyWith(
-                            color: AppTheme.colors.textMuted,
-                            fontSize: 13,
+                          // Title
+                          Text(
+                            'Open music links directly',
+                            style: Theme.of(context).textTheme.headlineMedium
+                                ?.copyWith(
+                                  color: AppTheme.colors.textPrimary,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'ZalandoSansExpanded',
+                                ),
                           ),
-                          textAlign: TextAlign.center,
+                          SizedBox(height: AppTheme.spacing.s),
+
+                          // Description
+                          Text(
+                            'UniTune can intercept music links from other apps and convert them automatically',
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(
+                                  color: AppTheme.colors.textSecondary,
+                                ),
+                          ),
+                          SizedBox(height: AppTheme.spacing.xl),
+                        ],
+                      ),
+                    ),
+
+                    // Scrollable content
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.fromLTRB(
+                          AppTheme.spacing.xl,
+                          0,
+                          AppTheme.spacing.xl,
+                          180, // Space for both buttons
+                        ),
+                        child: Column(
+                          children: [
+                            // How it works
+                            _buildHowItWorks(isSmallScreen),
+
+                            SizedBox(height: AppTheme.spacing.xl),
+
+                            // Visual Example
+                            _buildInterceptionExample(context, isSmallScreen),
+
+                            SizedBox(height: AppTheme.spacing.xl),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-          // Floating buttons
+          // Fixed buttons at bottom
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
             child: SafeArea(
               top: false,
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(24, 0, 24, 16),
-                child: _buildFloatingButtons(),
+              child: Container(
+                padding: EdgeInsets.fromLTRB(24, 16, 24, 16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      AppTheme.colors.backgroundDeep.withValues(alpha: 0.8),
+                      AppTheme.colors.backgroundDeep,
+                    ],
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Enable Button
+                    _buildEnableButton(),
+                    SizedBox(height: AppTheme.spacing.s),
+                    // Info text
+                    Text(
+                      'You can change this later in settings',
+                      style: AppTheme.typography.bodyMedium.copyWith(
+                        color: AppTheme.colors.textMuted,
+                        fontSize: 13,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: AppTheme.spacing.m),
+                    // Navigation buttons
+                    _buildFloatingButtons(),
+                  ],
+                ),
               ),
             ),
           ),
@@ -272,83 +308,6 @@ class _LinkInterceptionScreenState extends ConsumerState<LinkInterceptionScreen>
     return OnboardingProgressBar(
       currentStep: slideIndex,
       totalSteps: totalSlides,
-    );
-  }
-
-  Widget _buildInterceptionExample(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(AppTheme.spacing.l),
-      decoration: BoxDecoration(
-        color: AppTheme.colors.glassBase,
-        borderRadius: BorderRadius.circular(AppTheme.radii.large),
-        border: Border.all(color: AppTheme.colors.glassBorder, width: 1.0),
-      ),
-      child: Column(
-        children: [
-          // Example: Spotify link
-          Row(
-            children: [
-              BrandLogo.music(service: MusicService.spotify, size: 32),
-              SizedBox(width: AppTheme.spacing.m),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Spotify Link',
-                      style: AppTheme.typography.bodyLarge.copyWith(
-                        color: AppTheme.colors.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      'open.spotify.com/track/...',
-                      style: AppTheme.typography.bodyMedium.copyWith(
-                        color: AppTheme.colors.textMuted,
-                        fontSize: 12,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: AppTheme.spacing.m),
-
-          // Arrow down
-          Icon(Icons.arrow_downward, color: context.primaryColor, size: 24),
-          SizedBox(height: AppTheme.spacing.m),
-
-          // Result: Opens in your app
-          Container(
-            padding: EdgeInsets.all(AppTheme.spacing.m),
-            decoration: BoxDecoration(
-              color: context.primaryColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(AppTheme.radii.medium),
-              border: Border.all(
-                color: context.primaryColor.withValues(alpha: 0.3),
-                width: 1.0,
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.check_circle, color: context.primaryColor, size: 20),
-                SizedBox(width: AppTheme.spacing.s),
-                Expanded(
-                  child: Text(
-                    'Opens in YOUR music app',
-                    style: AppTheme.typography.bodyMedium.copyWith(
-                      color: context.primaryColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -387,9 +346,107 @@ class _LinkInterceptionScreenState extends ConsumerState<LinkInterceptionScreen>
     );
   }
 
-  Widget _buildHowItWorks() {
+  Widget _buildInterceptionExample(BuildContext context, bool isSmallScreen) {
+    final cardPadding = isSmallScreen ? AppTheme.spacing.m : AppTheme.spacing.l;
+    final iconSize = isSmallScreen ? 28.0 : 32.0;
+    final arrowSize = isSmallScreen ? 20.0 : 24.0;
+
     return Container(
-      padding: EdgeInsets.all(AppTheme.spacing.l),
+      padding: EdgeInsets.all(cardPadding),
+      decoration: BoxDecoration(
+        color: AppTheme.colors.glassBase,
+        borderRadius: BorderRadius.circular(AppTheme.radii.large),
+        border: Border.all(color: AppTheme.colors.glassBorder, width: 1.0),
+      ),
+      child: Column(
+        children: [
+          // Example: Spotify link
+          Row(
+            children: [
+              BrandLogo.music(service: MusicService.spotify, size: iconSize),
+              SizedBox(width: AppTheme.spacing.m),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Spotify Link',
+                      style: AppTheme.typography.bodyLarge.copyWith(
+                        color: AppTheme.colors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      'open.spotify.com/track/...',
+                      style: AppTheme.typography.bodyMedium.copyWith(
+                        color: AppTheme.colors.textMuted,
+                        fontSize: 12,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(
+            height: isSmallScreen ? AppTheme.spacing.s : AppTheme.spacing.m,
+          ),
+
+          // Arrow down
+          Icon(
+            Icons.arrow_downward,
+            color: context.primaryColor,
+            size: arrowSize,
+          ),
+          SizedBox(
+            height: isSmallScreen ? AppTheme.spacing.s : AppTheme.spacing.m,
+          ),
+
+          // Result: Opens in your app
+          Container(
+            padding: EdgeInsets.all(
+              isSmallScreen ? AppTheme.spacing.s : AppTheme.spacing.m,
+            ),
+            decoration: BoxDecoration(
+              color: context.primaryColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(AppTheme.radii.medium),
+              border: Border.all(
+                color: context.primaryColor.withValues(alpha: 0.3),
+                width: 1.0,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.check_circle,
+                  color: context.primaryColor,
+                  size: arrowSize,
+                ),
+                SizedBox(width: AppTheme.spacing.s),
+                Expanded(
+                  child: Text(
+                    'Opens in YOUR music app',
+                    style: AppTheme.typography.bodyMedium.copyWith(
+                      color: context.primaryColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHowItWorks(bool isSmallScreen) {
+    final cardPadding = isSmallScreen ? AppTheme.spacing.m : AppTheme.spacing.l;
+    final iconSize = isSmallScreen ? 18.0 : 20.0;
+
+    return Container(
+      padding: EdgeInsets.all(cardPadding),
       decoration: BoxDecoration(
         color: AppTheme.colors.glassBase,
         borderRadius: BorderRadius.circular(AppTheme.radii.large),
@@ -400,7 +457,11 @@ class _LinkInterceptionScreenState extends ConsumerState<LinkInterceptionScreen>
         children: [
           Row(
             children: [
-              Icon(Icons.info_outline, color: context.primaryColor, size: 20),
+              Icon(
+                Icons.info_outline,
+                color: context.primaryColor,
+                size: iconSize,
+              ),
               SizedBox(width: AppTheme.spacing.s),
               Text(
                 'How it works',
@@ -411,12 +472,14 @@ class _LinkInterceptionScreenState extends ConsumerState<LinkInterceptionScreen>
               ),
             ],
           ),
-          SizedBox(height: AppTheme.spacing.m),
-          _buildStep('1', 'Android asks which app to use'),
+          SizedBox(
+            height: isSmallScreen ? AppTheme.spacing.s : AppTheme.spacing.m,
+          ),
+          _buildStep('1', 'Enable link interception in Android settings'),
           SizedBox(height: AppTheme.spacing.s),
-          _buildStep('2', 'Choose UniTune'),
+          _buildStep('2', 'Click any music link from any app'),
           SizedBox(height: AppTheme.spacing.s),
-          _buildStep('3', 'Link opens in your preferred music app'),
+          _buildStep('3', 'It automatically opens in your preferred music app'),
         ],
       ),
     );

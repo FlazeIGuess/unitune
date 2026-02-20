@@ -19,6 +19,7 @@ import 'core/theme/dynamic_color_provider.dart';
 import 'core/security/url_validator.dart';
 import 'core/utils/link_encoder.dart';
 import 'core/ads/ad_helper.dart';
+import 'core/ads/consent_helper.dart';
 import 'core/widgets/primary_button.dart';
 import 'features/onboarding/screens/welcome_screen.dart';
 import 'features/onboarding/screens/music_service_selector.dart';
@@ -51,7 +52,13 @@ void main() async {
   await LiquidGlassWidgets.initialize();
 
   if (AdHelper.adsEnabled) {
-    await MobileAds.instance.initialize();
+    // GDPR: Request consent via Google UMP SDK BEFORE initializing the ad SDK.
+    // For EEA/UK users this shows a native consent dialog (Art. 6(1)(a) GDPR).
+    // Non-EEA users skip the dialog and proceed immediately.
+    final canShowAds = await ConsentHelper.requestConsentAndCheck();
+    if (canShowAds) {
+      await MobileAds.instance.initialize();
+    }
   }
 
   // Initialize SharedPreferences

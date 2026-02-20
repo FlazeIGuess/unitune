@@ -57,6 +57,6 @@
 		</dict>
 	</array>
 	<key>NSUserTrackingUsageDescription</key>
-	<string>UniTune uses tracking to show you relevant advertisements and support the app's development. Your privacy is important to us.</string>
+	<string>UniTune shows contextual ads only. No Advertising ID, no behavioral profiling, no personal data is used or shared.</string>
 </dict>
 </plist>

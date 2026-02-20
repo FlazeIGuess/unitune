@@ -43,7 +43,7 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
     _bannerAd = BannerAd(
       adUnitId: AdHelper.bannerAdUnitId,
       size: AdSize.banner,
-      request: const AdRequest(),
+      request: AdHelper.defaultRequest,
       listener: BannerAdListener(
         onAdLoaded: (_) {
           if (mounted) {

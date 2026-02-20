@@ -194,7 +194,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       Padding(
                         padding: EdgeInsets.only(bottom: AppTheme.spacing.m),
                         child: Text(
-                          'No account needed • Your data stays private',
+                          'No account needed • Contextual ads, no tracking',
                           style: AppTheme.typography.labelMedium.copyWith(
                             color: AppTheme.colors.textMuted,
                           ),

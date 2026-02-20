@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:app_settings/app_settings.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../../core/ads/ad_helper.dart';
+import '../../core/ads/consent_helper.dart';
 import '../../core/constants/services.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/dynamic_theme.dart';
@@ -16,6 +17,7 @@ import '../../core/widgets/unitune_logo.dart';
 import '../../core/widgets/unitune_header.dart';
 import '../../core/widgets/brand_logo.dart';
 import 'preferences_manager.dart';
+import '../version/whats_new_sheet.dart';
 
 /// Settings Screen - allows users to change their preferences
 /// Modern dark mode design with Liquid Glass effects
@@ -69,6 +71,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                       children: [
                         SizedBox(height: AppTheme.spacing.m),
+                        _SupportButton(),
+                        SizedBox(height: AppTheme.spacing.xl),
 
                         // DEFAULT PLATFORMS SECTION
                         _SectionHeader(title: 'Default Platforms'),
@@ -197,66 +201,57 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  /// Build Advanced section with Music Link Interception configuration
-  /// Android only feature - allows UniTune to intercept music links
+  /// Build Advanced section with Music Link Interception configuration.
+  /// Android only — always shows the configure button regardless of onboarding state.
   Widget _buildAdvancedSection(BuildContext context, WidgetRef ref) {
-    final interceptEnabled = ref.watch(interceptMusicLinksProvider);
-
-    // Only show if interception is enabled
-    if (!interceptEnabled) return SizedBox.shrink();
-
-    return Column(
-      children: [
-        LiquidGlassCard(
-          padding: EdgeInsets.zero,
-          child: InkWell(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              _openLinkSettings(context);
-            },
-            child: Padding(
-              padding: EdgeInsets.all(AppTheme.spacing.m),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.settings_applications,
-                    color: AppTheme.colors.textSecondary,
-                    size: 24,
-                  ),
-                  SizedBox(width: AppTheme.spacing.m),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Configure Link Handling',
-                          style: AppTheme.typography.bodyLarge.copyWith(
-                            color: AppTheme.colors.textPrimary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Manage which music links UniTune intercepts',
-                          style: AppTheme.typography.bodyMedium.copyWith(
-                            color: AppTheme.colors.textMuted,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    Icons.open_in_new,
-                    color: AppTheme.colors.textMuted,
-                    size: 20,
-                  ),
-                ],
+    return LiquidGlassCard(
+      padding: EdgeInsets.zero,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          _openLinkSettings(context);
+        },
+        child: Padding(
+          padding: EdgeInsets.all(AppTheme.spacing.m),
+          child: Row(
+            children: [
+              Icon(
+                Icons.settings_applications,
+                color: AppTheme.colors.textSecondary,
+                size: 24,
               ),
-            ),
+              SizedBox(width: AppTheme.spacing.m),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Configure Link Handling',
+                      style: AppTheme.typography.bodyLarge.copyWith(
+                        color: AppTheme.colors.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Manage which music links UniTune intercepts',
+                      style: AppTheme.typography.bodyMedium.copyWith(
+                        color: AppTheme.colors.textMuted,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.open_in_new,
+                color: AppTheme.colors.textMuted,
+                size: 20,
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -380,7 +375,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                       Text(
-                        'Version 1.4.4',
+                        'Version 1.5.0',
                         style: AppTheme.typography.bodyMedium.copyWith(
                           color: AppTheme.colors.textSecondary,
                         ),
@@ -391,7 +386,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               SizedBox(height: AppTheme.spacing.m),
               Text(
-                'Share music universally across streaming platforms. No accounts, no tracking, completely private.',
+                'Share music universally across streaming platforms.',
                 style: AppTheme.typography.bodyMedium.copyWith(
                   color: AppTheme.colors.textSecondary,
                 ),
@@ -400,11 +395,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
         SizedBox(height: AppTheme.spacing.m),
-        _SupportButton(),
+        _ChangelogButton(),
         SizedBox(height: AppTheme.spacing.m),
         _ReportBugButton(),
         SizedBox(height: AppTheme.spacing.m),
         _PrivacyPolicyButton(),
+        SizedBox(height: AppTheme.spacing.m),
+        _ManageConsentButton(),
       ],
     );
   }
@@ -561,6 +558,60 @@ class _MessengerServiceTile extends StatelessWidget {
   }
 }
 
+class _ChangelogButton extends StatelessWidget {
+  const _ChangelogButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return LiquidGlassCard(
+      padding: EdgeInsets.zero,
+      child: InkWell(
+        onTap: () {
+          WhatsNewSheet.show(context);
+        },
+        child: Padding(
+          padding: EdgeInsets.all(AppTheme.spacing.m),
+          child: Row(
+            children: [
+              Icon(
+                Icons.history_outlined,
+                color: AppTheme.colors.textSecondary,
+                size: 24,
+              ),
+              SizedBox(width: AppTheme.spacing.m),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "What's New",
+                      style: AppTheme.typography.bodyLarge.copyWith(
+                        color: AppTheme.colors.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      'See what changed in this update',
+                      style: AppTheme.typography.labelMedium.copyWith(
+                        color: AppTheme.colors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: AppTheme.colors.textMuted,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Privacy Policy Button Widget
 /// Opens the app privacy policy in the browser
 class _ReportBugButton extends StatelessWidget {
@@ -669,6 +720,72 @@ class _PrivacyPolicyButton extends StatelessWidget {
   }
 }
 
+/// Manage Ad Consent Button — GDPR requirement.
+/// Shown only when the user is in EEA/UK and a consent form is available.
+/// Allows re-opening the Google UMP consent dialog at any time.
+class _ManageConsentButton extends StatelessWidget {
+  const _ManageConsentButton();
+
+  @override
+  Widget build(BuildContext context) {
+    // Only render the button if a privacy options form is required
+    // (i.e. user is EEA/UK and has previously seen the consent dialog)
+    if (!ConsentHelper.shouldShowPrivacyOptionsButton()) {
+      return const SizedBox.shrink();
+    }
+
+    return LiquidGlassCard(
+      padding: EdgeInsets.zero,
+      child: InkWell(
+        onTap: () async {
+          HapticFeedback.lightImpact();
+          await ConsentHelper.showPrivacyOptionsForm();
+        },
+        child: Padding(
+          padding: EdgeInsets.all(AppTheme.spacing.m),
+          child: Row(
+            children: [
+              Icon(
+                Icons.manage_accounts_outlined,
+                color: AppTheme.colors.textSecondary,
+                size: 24,
+              ),
+              SizedBox(width: AppTheme.spacing.m),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Manage Ad Consent',
+                      style: AppTheme.typography.bodyLarge.copyWith(
+                        color: AppTheme.colors.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Update your advertising preferences',
+                      style: AppTheme.typography.bodyMedium.copyWith(
+                        color: AppTheme.colors.textMuted,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: AppTheme.colors.textMuted,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SupportButton extends ConsumerStatefulWidget {
   const _SupportButton();
 
@@ -692,13 +809,15 @@ class _SupportButtonState extends ConsumerState<_SupportButton> {
     super.dispose();
   }
 
-  void _loadRewardedAd() {
+  void _loadRewardedAd() async {
     if (!AdHelper.adsEnabled) return;
     if (_isAdLoading) return;
+    // GDPR: Only load ads if consent has been given (or user is non-EEA).
+    if (!await ConsentHelper.canRequestAds()) return;
     _isAdLoading = true;
     RewardedAd.load(
       adUnitId: AdHelper.rewardedAdUnitId,
-      request: const AdRequest(),
+      request: AdHelper.defaultRequest,
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
           if (mounted) {
