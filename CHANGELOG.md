@@ -10,10 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### What's New
 <!-- 2-4 user-facing highlights shown in the app's What's New sheet.           -->
 <!-- Format: - [material_icon_name] Short Title — One sentence description.    -->
-- [system_update] Update Notifications — UniTune zeigt dir jetzt an, wenn eine neue Version verfügbar ist.
-- [auto_awesome] What's New — Nach jedem Update siehst du einmalig die wichtigsten Neuerungen.
-- [rocket_launch] Schnellere Releases — Neue Versionen werden automatisch gebaut und veröffentlicht.
-- [privacy_tip] Privacy First — Der Update-Check sendet keine Nutzerdaten, nur eine anonyme Versions-Anfrage.
+- [system_update] Update Notifications — UniTune now notifies you when a new version is available.
+- [auto_awesome] What's New — After each update you'll see the highlights once.
+- [rocket_launch] Faster Releases — New versions are built and published automatically.
+- [privacy_tip] Privacy First — The update check sends no user data, just an anonymous version request.
 
 ### Added
 
