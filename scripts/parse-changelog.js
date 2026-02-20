@@ -171,7 +171,7 @@ function main() {
     changelog_url: CHANGELOG_URL,
   };
 
-  process.stdout.write(JSON.stringify(payload, null, 2) + '\n');
+  process.stdout.write(JSON.stringify(payload) + '\n');
 }
 
 main();
