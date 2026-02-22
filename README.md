@@ -5,7 +5,7 @@
   
   **Universal Music Link Sharing**
   
-  [Official Website](https://unitune.art/) • [Features](https://github.com/FlazeIGuess/unitune?tab=readme-ov-file#key-features) • [Screenshots](https://github.com/FlazeIGuess/unitune?tab=readme-ov-file#screenshots) • [Download ](https://github.com/FlazeIGuess/unitune?tab=readme-ov-file#download--install)
+  [Official Website](https://unitune.art/) • [Features](#key-features) • [Screenshots](#screenshots) • [Download ](#download--install)
   
   Share your favorite music across all streaming platforms with a single tap
   
