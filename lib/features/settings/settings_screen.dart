@@ -74,6 +74,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         _SupportButton(),
                         SizedBox(height: AppTheme.spacing.xl),
 
+                        // PROFILE SECTION (Nickname)
+                        _SectionHeader(title: 'Profile'),
+                        SizedBox(height: AppTheme.spacing.s),
+                        _buildProfileSection(context, ref),
+
+                        SizedBox(height: AppTheme.spacing.xl),
+
                         // DEFAULT PLATFORMS SECTION
                         _SectionHeader(title: 'Default Platforms'),
                         SizedBox(height: AppTheme.spacing.s),
@@ -349,6 +356,116 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  /// Build Profile section with nickname input
+  Widget _buildProfileSection(BuildContext context, WidgetRef ref) {
+    final prefsManager = ref.watch(preferencesManagerProvider);
+    final currentNickname = prefsManager.userNickname ?? '';
+    final textController = TextEditingController(text: currentNickname)
+      ..selection = TextSelection.fromPosition(
+        TextPosition(offset: currentNickname.length),
+      );
+
+    return LiquidGlassCard(
+      padding: EdgeInsets.all(AppTheme.spacing.m),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.person_outline,
+                color: AppTheme.colors.textSecondary,
+                size: 20,
+              ),
+              SizedBox(width: AppTheme.spacing.s),
+              Text(
+                'Your Nickname (optional)',
+                style: AppTheme.typography.labelLarge.copyWith(
+                  color: AppTheme.colors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: AppTheme.spacing.m),
+          StatefulBuilder(
+            builder: (context, setState) {
+              return TextField(
+                controller: textController,
+                decoration: InputDecoration(
+                  hintText: 'e.g., MusicLover',
+                  hintStyle: AppTheme.typography.bodyMedium.copyWith(
+                    color: AppTheme.colors.textMuted,
+                  ),
+                  helperText: 'Shown when you share music',
+                  helperStyle: AppTheme.typography.bodyMedium.copyWith(
+                    color: AppTheme.colors.textMuted,
+                    fontSize: 12,
+                  ),
+                  counterText: '',
+                  filled: true,
+                  fillColor: AppTheme.colors.backgroundCard,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radii.medium),
+                    borderSide: BorderSide(
+                      color: AppTheme.colors.glassBorder,
+                      width: 1,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radii.medium),
+                    borderSide: BorderSide(
+                      color: AppTheme.colors.glassBorder,
+                      width: 1,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radii.medium),
+                    borderSide: BorderSide(
+                      color: context.primaryColor,
+                      width: 1.5,
+                    ),
+                  ),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: AppTheme.spacing.m,
+                    vertical: AppTheme.spacing.m,
+                  ),
+                  suffixIcon: textController.text.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(
+                            Icons.clear,
+                            color: AppTheme.colors.textMuted,
+                            size: 20,
+                          ),
+                          onPressed: () async {
+                            HapticFeedback.lightImpact();
+                            textController.clear();
+                            await prefsManager.setUserNickname(null);
+                            ref.read(userNicknameProvider.notifier).state =
+                                null;
+                            setState(() {});
+                          },
+                          tooltip: 'Clear nickname',
+                        )
+                      : null,
+                ),
+                style: AppTheme.typography.bodyLarge.copyWith(
+                  color: AppTheme.colors.textPrimary,
+                ),
+                maxLength: 20,
+                onChanged: (value) async {
+                  await prefsManager.setUserNickname(value.trim());
+                  ref.read(userNicknameProvider.notifier).state =
+                      value.trim().isEmpty ? null : value.trim();
+                  setState(() {});
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Show info dialog explaining music link interception
   /// Requirement 11.6: Display version information in About section
   /// Requirement 17.1: Ensure all text is in English
@@ -375,7 +492,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                       Text(
-                        'Version 1.5.0',
+                        'Version 1.5.1',
                         style: AppTheme.typography.bodyMedium.copyWith(
                           color: AppTheme.colors.textSecondary,
                         ),

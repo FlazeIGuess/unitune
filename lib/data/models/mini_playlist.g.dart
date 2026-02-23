@@ -19,6 +19,7 @@ MiniPlaylist _$MiniPlaylistFromJson(Map<String, dynamic> json) => MiniPlaylist(
       ? null
       : DateTime.parse(json['lastModified'] as String),
   isPublic: json['isPublic'] as bool? ?? false,
+  creatorNickname: json['creatorNickname'] as String?,
 );
 
 Map<String, dynamic> _$MiniPlaylistToJson(MiniPlaylist instance) =>
@@ -31,4 +32,5 @@ Map<String, dynamic> _$MiniPlaylistToJson(MiniPlaylist instance) =>
       'createdAt': instance.createdAt.toIso8601String(),
       'lastModified': instance.lastModified?.toIso8601String(),
       'isPublic': instance.isPublic,
+      'creatorNickname': instance.creatorNickname,
     };

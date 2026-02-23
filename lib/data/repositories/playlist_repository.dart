@@ -22,10 +22,24 @@ class PlaylistRepository {
     required String title,
     required List<PlaylistTrack> tracks,
     String? description,
+    bool includeNickname = true,
   }) async {
     debugPrint(
-      'PlaylistRepository.createPlaylist title="$title" tracks=${tracks.length}',
+      'PlaylistRepository.createPlaylist title="$title" tracks=${tracks.length} includeNickname=$includeNickname',
     );
+
+    // Get nickname from preferences if includeNickname is true
+    String? creatorNickname;
+    if (includeNickname) {
+      try {
+        final prefs = _prefs;
+        creatorNickname = prefs.getString('user_nickname');
+      } catch (e) {
+        debugPrint('Error reading nickname: $e');
+        creatorNickname = null;
+      }
+    }
+
     final playlist = MiniPlaylist(
       id: _uuid.v4(),
       title: title,
@@ -33,6 +47,7 @@ class PlaylistRepository {
       description: description,
       createdAt: DateTime.now(),
       lastModified: DateTime.now(),
+      creatorNickname: creatorNickname,
     );
 
     await savePlaylist(playlist);
@@ -44,6 +59,7 @@ class PlaylistRepository {
     required String title,
     required List<PlaylistTrack> tracks,
     String? description,
+    String? creatorNickname,
   }) async {
     debugPrint(
       'PlaylistRepository.createReceivedPlaylist title="$title" tracks=${tracks.length}',
@@ -53,6 +69,7 @@ class PlaylistRepository {
       title: title,
       tracks: tracks,
       description: description,
+      creatorNickname: creatorNickname,
       createdAt: DateTime.now(),
       lastModified: DateTime.now(),
     );

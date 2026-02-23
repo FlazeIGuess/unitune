@@ -43,6 +43,7 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
   String? _addError;
   bool _showShareTip = true;
   int _addMethodIndex = 0;
+  bool _includeNickname = true; // Default: include nickname
 
   @override
   void initState() {
@@ -193,6 +194,8 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
   Widget _buildInputSection(int titleLength, int descriptionLength) {
     final titleError = titleLength > 50;
     final descriptionError = descriptionLength > 200;
+    final userNickname = ref.watch(preferencesManagerProvider).userNickname;
+    final hasNickname = userNickname != null && userNickname.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -270,6 +273,51 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
                   ),
                 ),
               ),
+              if (hasNickname) ...[
+                SizedBox(height: AppTheme.spacing.l),
+                Divider(color: AppTheme.colors.glassBorder, height: 1),
+                SizedBox(height: AppTheme.spacing.l),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.person_outline,
+                      size: 20,
+                      color: AppTheme.colors.textSecondary,
+                    ),
+                    SizedBox(width: AppTheme.spacing.s),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Show nickname',
+                            style: AppTheme.typography.bodyLarge.copyWith(
+                              color: AppTheme.colors.textPrimary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Share as "$userNickname"',
+                            style: AppTheme.typography.bodyMedium.copyWith(
+                              color: AppTheme.colors.textSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: _includeNickname,
+                      onChanged: (value) {
+                        HapticFeedback.selectionClick();
+                        setState(() => _includeNickname = value);
+                      },
+                      activeColor: context.primaryColor,
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -1095,7 +1143,7 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
     if (_tracks.isEmpty || _titleController.text.isEmpty) return;
 
     debugPrint(
-      'PlaylistCreator.create start title="${_titleController.text}" tracks=${_tracks.length}',
+      'PlaylistCreator.create start title="${_titleController.text}" tracks=${_tracks.length} includeNickname=$_includeNickname',
     );
     setState(() => _isCreating = true);
 
@@ -1108,6 +1156,7 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
         description: _descriptionController.text.isEmpty
             ? null
             : _descriptionController.text,
+        includeNickname: _includeNickname,
       );
       debugPrint('PlaylistCreator.create local id=${playlist.id}');
 

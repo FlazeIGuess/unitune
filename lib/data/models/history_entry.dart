@@ -21,6 +21,7 @@ class HistoryEntry {
   final HistoryType type;
   final MusicContentType contentType;
   final DateTime timestamp;
+  final String? sharedByNickname;
 
   const HistoryEntry({
     required this.id,
@@ -32,6 +33,7 @@ class HistoryEntry {
     required this.type,
     this.contentType = MusicContentType.track,
     required this.timestamp,
+    this.sharedByNickname,
   });
 
   /// Create from JSON map
@@ -52,6 +54,7 @@ class HistoryEntry {
         orElse: () => MusicContentType.track,
       ),
       timestamp: DateTime.parse(json['timestamp'] as String),
+      sharedByNickname: json['sharedByNickname'] as String?,
     );
   }
 
@@ -67,6 +70,7 @@ class HistoryEntry {
       'type': type.name,
       'contentType': contentType.name,
       'timestamp': timestamp.toIso8601String(),
+      'sharedByNickname': sharedByNickname,
     };
   }
 
@@ -81,6 +85,7 @@ class HistoryEntry {
     HistoryType? type,
     MusicContentType? contentType,
     DateTime? timestamp,
+    String? sharedByNickname,
   }) {
     return HistoryEntry(
       id: id ?? this.id,
@@ -92,6 +97,7 @@ class HistoryEntry {
       type: type ?? this.type,
       contentType: contentType ?? this.contentType,
       timestamp: timestamp ?? this.timestamp,
+      sharedByNickname: sharedByNickname ?? this.sharedByNickname,
     );
   }
 

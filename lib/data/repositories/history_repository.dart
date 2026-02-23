@@ -55,11 +55,17 @@ class HistoryRepository {
     try {
       final entries = await getAll();
 
-      // Check for duplicate (same originalUrl within last 5 minutes)
+      // Dedup window is type-aware:
+      // - Shared: 5 minutes (prevents re-sharing the same song quickly)
+      // - Received: 30 seconds (prevents double-processing a reopened link but
+      //   allows the same song received from different senders or at different times)
+      final dedupSeconds = entry.type == HistoryType.shared ? 5 * 60 : 30;
       final isDuplicate = entries.any(
         (e) =>
+            e.type == entry.type &&
             e.originalUrl == entry.originalUrl &&
-            entry.timestamp.difference(e.timestamp).inMinutes.abs() < 5,
+            entry.timestamp.difference(e.timestamp).inSeconds.abs() <
+                dedupSeconds,
       );
 
       if (isDuplicate) {

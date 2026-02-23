@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../data/models/history_entry.dart';
 import '../../data/models/music_content_type.dart';
 import '../theme/app_theme.dart';
+import '../theme/dynamic_theme.dart';
 import 'liquid_glass_container.dart';
 import 'album_art_with_glow.dart';
 
@@ -38,7 +39,16 @@ class HistoryCard extends StatelessWidget {
   /// Callback when the card is tapped
   final VoidCallback? onTap;
 
-  const HistoryCard({super.key, required this.historyEntry, this.onTap});
+  /// Number of times this song was received (for bundled received entries).
+  /// Shows a count badge when > 1.
+  final int receiveCount;
+
+  const HistoryCard({
+    super.key,
+    required this.historyEntry,
+    this.onTap,
+    this.receiveCount = 1,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -93,6 +103,33 @@ class HistoryCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     SizedBox(height: AppTheme.spacing.xs / 2), // 4px
+                    // Nickname badge (only for received entries with nickname)
+                    if (historyEntry.type == HistoryType.received &&
+                        historyEntry.sharedByNickname != null) ...[
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.person_outline,
+                            size: 12,
+                            color: AppTheme.colors.textMuted,
+                          ),
+                          SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              'by ${historyEntry.sharedByNickname}',
+                              style: AppTheme.typography.labelMedium.copyWith(
+                                color: AppTheme.colors.textMuted,
+                                fontSize: 11,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: AppTheme.spacing.xs / 2), // 4px
+                    ],
                     // Timestamp
                     Text(
                       _formatTimestamp(historyEntry.timestamp),
@@ -104,6 +141,28 @@ class HistoryCard extends StatelessWidget {
                 ),
               ),
 
+              // Count badge for bundled received entries
+              if (receiveCount > 1) ...[
+                SizedBox(width: AppTheme.spacing.xs),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: context.primaryColor.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(AppTheme.radii.small),
+                  ),
+                  child: Text(
+                    '${receiveCount}\u00d7',
+                    style: AppTheme.typography.labelMedium.copyWith(
+                      color: context.primaryColor,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
               // Chevron indicator
               Icon(
                 Icons.chevron_right,

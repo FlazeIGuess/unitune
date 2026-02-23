@@ -57,10 +57,14 @@ class ProcessingScreen extends ConsumerStatefulWidget {
   final String incomingLink;
   final ProcessingMode mode;
 
+  /// Nickname of the person who shared this link (only set in OPEN mode)
+  final String? sharedByNickname;
+
   const ProcessingScreen({
     super.key,
     required this.incomingLink,
     required this.mode,
+    this.sharedByNickname,
   });
 
   @override
@@ -689,6 +693,32 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     final response = _response;
     if (response == null) return;
 
+    // Resolve nickname: prefer the one passed via navigation (from the decoded share link)
+    String? sharedByNickname;
+    if (type == HistoryType.received) {
+      // Primary source: nickname forwarded from main.dart when decoding the /s/ link
+      sharedByNickname = widget.sharedByNickname;
+      if (sharedByNickname != null) {
+        debugPrint('Using sharedByNickname from navigation: $sharedByNickname');
+      }
+
+      // Fallback: extract from uniTuneUrl if provided
+      if (sharedByNickname == null && uniTuneUrl != null) {
+        try {
+          if (uniTuneUrl.contains('/s/')) {
+            final encoded = uniTuneUrl.split('/s/').last;
+            final (_, nickname) = UniTuneLinkEncoder.decodeShareLinkPath(
+              encoded,
+            );
+            sharedByNickname = nickname;
+            debugPrint('Extracted nickname from share link: $sharedByNickname');
+          }
+        } catch (e) {
+          debugPrint('Error extracting nickname from share link: $e');
+        }
+      }
+    }
+
     try {
       final entry = HistoryEntry(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -700,6 +730,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
         type: type,
         contentType: response.contentType,
         timestamp: DateTime.now(),
+        sharedByNickname: sharedByNickname,
       );
 
       await ref.read(historyRepositoryProvider).add(entry);
@@ -737,7 +768,19 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
 
   String _generateShareLink(UnituneResponse response) {
     try {
-      return UniTuneLinkEncoder.createShareLinkFromUrl(widget.incomingLink);
+      // Get nickname from preferences
+      String? nickname;
+      try {
+        nickname = ref.read(preferencesManagerProvider).userNickname;
+      } catch (e) {
+        debugPrint('Cannot read nickname (widget disposed): $e');
+        nickname = null;
+      }
+
+      return UniTuneLinkEncoder.createShareLinkFromUrl(
+        widget.incomingLink,
+        nickname: nickname,
+      );
     } catch (e) {
       debugPrint('=== Error generating share link: $e ===');
       // Fallback: return the original link

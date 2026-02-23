@@ -375,6 +375,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         onEntryTap: _onEntryTap,
                         onEntryDelete: _onEntryDelete,
                         onRefresh: _refreshHistory,
+                        bundleEntries: true,
                       ),
                       _HistoryTab(
                         provider: receivedHistoryProvider,
@@ -386,6 +387,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         onEntryTap: _onEntryTap,
                         onEntryDelete: _onEntryDelete,
                         onRefresh: _refreshHistory,
+                        bundleEntries: true,
                       ),
                     ],
                   ),
@@ -568,6 +570,9 @@ class _HistoryTab extends ConsumerWidget {
   final Function(HistoryEntry) onEntryDelete;
   final Future<void> Function() onRefresh;
 
+  /// When true, entries with the same URL are grouped and a count badge is shown.
+  final bool bundleEntries;
+
   const _HistoryTab({
     required this.provider,
     required this.emptyIcon,
@@ -578,6 +583,7 @@ class _HistoryTab extends ConsumerWidget {
     required this.onEntryTap,
     required this.onEntryDelete,
     required this.onRefresh,
+    this.bundleEntries = false,
   });
 
   @override
@@ -602,6 +608,11 @@ class _HistoryTab extends ConsumerWidget {
           return _buildEmptyState(context);
         }
 
+        // Bundle duplicate received entries by original URL when requested
+        final displayItems = bundleEntries
+            ? _bundleByUrl(filteredEntries)
+            : filteredEntries.map((e) => (entry: e, count: 1)).toList();
+
         return RefreshIndicator(
           onRefresh: onRefresh,
           color: context.primaryColor,
@@ -613,8 +624,7 @@ class _HistoryTab extends ConsumerWidget {
               AppTheme.spacing.m,
               120, // Bottom padding for floating navigation bar
             ),
-            itemCount:
-                filteredEntries.length + (filteredEntries.length ~/ 5) + 1,
+            itemCount: displayItems.length + (displayItems.length ~/ 5) + 1,
             // Consistent spacing between cards (Requirement 10.5)
             separatorBuilder: (_, __) => SizedBox(height: AppTheme.spacing.s),
             itemBuilder: (context, index) {
@@ -631,20 +641,38 @@ class _HistoryTab extends ConsumerWidget {
               final adCount = (entryPosition + 1) ~/ 6;
               final entryIndex = entryPosition - adCount;
 
-              if (entryIndex >= filteredEntries.length) {
+              if (entryIndex >= displayItems.length) {
                 return const SizedBox.shrink();
               }
 
-              final entry = filteredEntries[entryIndex];
+              final item = displayItems[entryIndex];
               return HistoryCard(
-                historyEntry: entry,
-                onTap: () => onEntryTap(entry),
+                historyEntry: item.entry,
+                receiveCount: item.count,
+                onTap: () => onEntryTap(item.entry),
               );
             },
           ),
         );
       },
     );
+  }
+
+  /// Groups entries by [HistoryEntry.originalUrl], returning the newest entry
+  /// per group alongside its count. Result is sorted newest-first.
+  List<({HistoryEntry entry, int count})> _bundleByUrl(
+    List<HistoryEntry> entries,
+  ) {
+    final map = <String, List<HistoryEntry>>{};
+    for (final e in entries) {
+      map.putIfAbsent(e.originalUrl, () => []).add(e);
+    }
+    final result = map.values.map((group) {
+      final sorted = [...group]
+        ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      return (entry: sorted.first, count: group.length);
+    }).toList()..sort((a, b) => b.entry.timestamp.compareTo(a.entry.timestamp));
+    return result;
   }
 
   Widget _buildEmptyState(BuildContext context) {

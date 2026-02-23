@@ -19,14 +19,22 @@ class UniTuneLinkEncoder {
   /// - trackId: The track identifier
   /// - type: Content type (default: 'track')
   /// - baseUrl: Base URL for the share link (default: 'https://unitune.art')
+  /// - nickname: Optional nickname to append to the encoded link
   static String createShareLink(
     String platform,
     String trackId, {
     String type = 'track',
     String baseUrl = _baseUrl,
+    String? nickname,
   }) {
-    // Format: platform:type:id
-    final identifier = '$platform:$type:$trackId';
+    // Format: platform:type:id or platform:type:id:nickname
+    String identifier = '$platform:$type:$trackId';
+
+    // Append nickname if provided
+    if (nickname != null && nickname.trim().isNotEmpty) {
+      final sanitized = nickname.trim();
+      identifier = '$identifier:$sanitized';
+    }
 
     // Base64 encode (URL-safe)
     String encoded = base64Url.encode(utf8.encode(identifier));
@@ -41,12 +49,16 @@ class UniTuneLinkEncoder {
   ///
   /// Extracts platform and track ID from the URL and encodes it.
   /// Throws UnsupportedError if URL cannot be parsed.
+  ///
+  /// Optional nickname parameter will be appended to the encoded link.
   static String createShareLinkFromUrl(
     String musicUrl, {
     String baseUrl = _baseUrl,
+    String? nickname,
   }) {
     print('=== UniTuneLinkEncoder.createShareLinkFromUrl ===');
     print('Input URL: $musicUrl');
+    print('Nickname: ${nickname ?? "none"}');
 
     final parsed = _parseMusicUrl(musicUrl);
 
@@ -59,6 +71,7 @@ class UniTuneLinkEncoder {
         parsed.trackId,
         type: parsed.type,
         baseUrl: baseUrl,
+        nickname: nickname,
       );
       print('Generated Base64 link: $link');
       return link;
@@ -71,12 +84,12 @@ class UniTuneLinkEncoder {
     );
   }
 
-  /// Decodes a UniTune share link path to extract the music URL
+  /// Decodes a UniTune share link path to extract the music URL and optional nickname
   ///
-  /// Supports Base64 encoded format (platform:type:id)
+  /// Supports Base64 encoded format (platform:type:id or platform:type:id:nickname)
   ///
-  /// Returns the decoded music URL or null if decoding fails
-  static String? decodeShareLinkPath(String encodedPath) {
+  /// Returns a record with (musicUrl, nickname) or (null, null) if decoding fails
+  static (String?, String?) decodeShareLinkPath(String encodedPath) {
     try {
       // Add padding if needed
       String padded = encodedPath;
@@ -86,24 +99,37 @@ class UniTuneLinkEncoder {
 
       final decoded = utf8.decode(base64Url.decode(padded));
 
-      // Check if it's in platform:type:id format
+      // Check if it's in platform:type:id or platform:type:id:nickname format
       if (decoded.contains(':') && !decoded.startsWith('http')) {
         // It's the new format - reconstruct the URL
         final parts = decoded.split(':');
         if (parts.length >= 3) {
           final platform = parts[0];
           final type = parts[1];
-          final id = parts.sublist(2).join(':'); // Handle IDs with colons
 
-          return _reconstructMusicUrl(platform, type, id);
+          // Check if nickname is present (4+ parts)
+          String? nickname;
+          String id;
+
+          if (parts.length >= 4) {
+            // Last part is nickname, everything in between is ID
+            nickname = parts.last;
+            id = parts.sublist(2, parts.length - 1).join(':');
+          } else {
+            // No nickname, everything after type is ID
+            id = parts.sublist(2).join(':');
+          }
+
+          final url = _reconstructMusicUrl(platform, type, id);
+          return (url, nickname);
         }
       }
 
       // Invalid format
-      return null;
+      return (null, null);
     } catch (e) {
       print('❌ Failed to decode share link: $e');
-      return null;
+      return (null, null);
     }
   }
 

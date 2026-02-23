@@ -285,6 +285,26 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
             color: AppTheme.colors.textSecondary,
           ),
         ),
+        if (playlist.creatorNickname != null) ...[
+          SizedBox(height: AppTheme.spacing.s),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.person_outline,
+                size: 16,
+                color: AppTheme.colors.textMuted,
+              ),
+              SizedBox(width: 4),
+              Text(
+                'by ${playlist.creatorNickname}',
+                style: AppTheme.typography.bodyMedium.copyWith(
+                  color: AppTheme.colors.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ],
         if (playlist.description != null) ...[
           SizedBox(height: AppTheme.spacing.m),
           Text(
@@ -575,7 +595,12 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
     HapticFeedback.mediumImpact();
     debugPrint('PlaylistDetail.share start id=${playlist.id}');
 
+    // Read all ref-dependent values BEFORE any await to avoid
+    // "Cannot use ref after widget was disposed" when the System Share
+    // sheet takes focus and the widget tree rebuilds/disposes.
     final shareService = ref.read(playlistShareServiceProvider);
+    final repo = ref.read(playlistRepositoryProvider);
+
     final shareLink = await shareService.resolveShareLink(ref, playlist);
     if (shareLink == null) {
       debugPrint('PlaylistDetail.share failed id=${playlist.id}');
@@ -598,9 +623,12 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
     await Share.share(message, subject: playlist.title);
     debugPrint('PlaylistDetail.share shared id=${playlist.id}');
 
-    final repo = ref.read(playlistRepositoryProvider);
+    // Widget may be disposed after the Share sheet is dismissed — use the
+    // pre-captured [repo] instance and guard invalidate with mounted check.
     await repo.saveSharedPlaylist(playlist);
-    ref.invalidate(sharedPlaylistsHistoryProvider);
+    if (context.mounted) {
+      ref.invalidate(sharedPlaylistsHistoryProvider);
+    }
     debugPrint('PlaylistDetail.share stored history id=${playlist.id}');
   }
 

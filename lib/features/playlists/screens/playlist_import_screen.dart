@@ -49,6 +49,7 @@ class _PlaylistImportScreenState extends ConsumerState<PlaylistImportScreen> {
       title: remote.title,
       tracks: remote.tracks,
       description: remote.description,
+      creatorNickname: remote.creatorNickname,
     );
 
     await localRepo.saveRemotePlaylistMapping(playlist.id, remote.id, '');

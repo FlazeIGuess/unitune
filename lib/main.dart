@@ -395,11 +395,13 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
       final encodedPath = uri.path.replaceFirst('/s/', '');
 
       // Decode using the new encoder (supports both Base64 and legacy formats)
-      final musicUrl = UniTuneLinkEncoder.decodeShareLinkPath(encodedPath);
+      final (musicUrl, nickname) = UniTuneLinkEncoder.decodeShareLinkPath(
+        encodedPath,
+      );
 
       if (musicUrl != null && musicUrl.isNotEmpty) {
         debugPrint(
-          'OPEN mode: Extracted music URL from unitune.art path: $musicUrl',
+          'OPEN mode: Extracted music URL from unitune.art path: $musicUrl (nickname: ${nickname ?? "none"})',
         );
 
         // Validate the URL before processing
@@ -429,6 +431,7 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
         _navigateToProcessing(
           validationResult.sanitizedUrl,
           ProcessingMode.open,
+          sharedByNickname: nickname,
         );
         return;
       }
@@ -522,7 +525,9 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
       // Check if it's a unitune.art link
       if (uri.host.contains('unitune') && uri.path.startsWith('/s/')) {
         final encodedPath = uri.path.replaceFirst('/s/', '');
-        final decodedUrl = UniTuneLinkEncoder.decodeShareLinkPath(encodedPath);
+        final (decodedUrl, _) = UniTuneLinkEncoder.decodeShareLinkPath(
+          encodedPath,
+        );
         if (decodedUrl != null && decodedUrl.isNotEmpty) {
           debugPrint('Decoded unitune.art share link: $decodedUrl');
           return decodedUrl;
@@ -701,10 +706,15 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
     return musicDomains.any((domain) => lowerLink.contains(domain));
   }
 
-  void _navigateToProcessing(String link, ProcessingMode mode) {
+  void _navigateToProcessing(
+    String link,
+    ProcessingMode mode, {
+    String? sharedByNickname,
+  }) {
     debugPrint('=== _navigateToProcessing called ===');
     debugPrint('Link: $link');
     debugPrint('Mode: $mode');
+    debugPrint('sharedByNickname: ${sharedByNickname ?? "none"}');
     debugPrint('Current _pendingLink: $_pendingLink');
 
     // CRITICAL: If there's already a pending navigation for this link,
@@ -718,7 +728,11 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
     ref.read(incomingLinkProvider.notifier).state = link;
 
     final modeParam = mode == ProcessingMode.open ? 'open' : 'share';
-    final target = '/process?link=${Uri.encodeComponent(link)}&mode=$modeParam';
+    String target =
+        '/process?link=${Uri.encodeComponent(link)}&mode=$modeParam';
+    if (sharedByNickname != null && sharedByNickname.isNotEmpty) {
+      target += '&nickname=${Uri.encodeComponent(sharedByNickname)}';
+    }
 
     debugPrint('Target route: $target');
 
@@ -941,12 +955,21 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
             final mode = modeParam == 'open'
                 ? ProcessingMode.open
                 : ProcessingMode.share;
+            final nicknameParam = state.uri.queryParameters['nickname'];
+            final nickname = nicknameParam != null && nicknameParam.isNotEmpty
+                ? Uri.decodeComponent(nicknameParam)
+                : null;
 
             debugPrint('Decoded link: $link');
             debugPrint('Mode: $mode');
+            debugPrint('sharedByNickname: ${nickname ?? "none"}');
             debugPrint('Creating ProcessingScreen widget...');
 
-            final screen = ProcessingScreen(incomingLink: link, mode: mode);
+            final screen = ProcessingScreen(
+              incomingLink: link,
+              mode: mode,
+              sharedByNickname: nickname,
+            );
             debugPrint('ProcessingScreen widget created');
 
             return CustomTransitionPage(

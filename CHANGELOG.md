@@ -5,6 +5,62 @@ All notable changes to UniTune will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - Unreleased
+
+### What's New
+<!-- 2-4 user-facing highlights shown in the app's What's New sheet.           -->
+<!-- Format: - [material_icon_name] Short Title — One sentence description.    -->
+- [person] Nickname Feature — Set an optional nickname that appears when you share music.
+- [layers] Bundled Songs — Duplicate songs in your history are now grouped with a count badge.
+- [history] Enhanced History — See who shared songs with you in your history.
+- [privacy_tip] Privacy First — Nickname is optional, stored locally, and fully under your control.
+
+### Added
+
+- Optional nickname setting in Profile section of Settings (above Default Platforms)
+- Nickname input field with 20 character limit, real-time validation, and dynamic clear button
+- Toggle in playlist creator to optionally include/exclude nickname when creating playlists
+- Nickname is automatically included in share links when set
+- Nickname display in received history entries showing who shared the song
+- Creator nickname badge in playlist detail view
+- Welcome greeting on the Home screen showing the user's nickname with a quick-edit pen icon
+- Bundled song history: identical songs grouped by URL in both Shared and Received tabs, showing a dynamic-colored count badge (e.g. 3×)
+- Open Graph meta tags now include nickname in social media previews
+- Nickname extraction from incoming UniTune share links
+- Privacy-compliant nickname handling: stored locally, transmitted only in share links
+
+### Changed
+
+- Share link format extended to support optional nickname (platform:type:id:nickname)
+- History entry model updated to include sharedByNickname field
+- Playlist model extended with creatorNickname field
+- Processing screen now extracts and saves nickname from received share links
+- Settings screen reorganized with new Profile section above Default Platforms
+- History deduplication window is now type-aware: 5 minutes for shared entries, 30 seconds for received entries (prevents missed entries from the same song received at different times)
+- Worker share link handler updated to parse and forward nickname to metadata
+- Landing page Open Graph description includes nickname when present
+- Playlist links (/p/{id}) now render full playlist pages instead of immediate redirects
+- Website playlist pages show complete track list with thumbnails and play buttons
+- Bot rendering for playlists enhanced with detailed Open Graph tags
+
+### Technical
+
+- Extended PreferencesManager with userNickname getter/setter
+- Added userNicknameProvider (StateProvider) for reactive nickname state across home screen and settings
+- Updated HistoryEntry model with sharedByNickname field and JSON serialization
+- Updated MiniPlaylist model with creatorNickname field
+- Enhanced UniTuneLinkEncoder to encode/decode nickname in Base64 share links
+- Modified processing_screen.dart to read nickname from preferences when sharing
+- Updated history_item_card.dart to display nickname badge for received entries and count badge for bundled entries (uses context.primaryColor for dynamic coloring)
+- Added _bundleByUrl() helper in history_screen.dart to group entries by originalUrl; both Shared and Received tabs use bundleEntries: true
+- Added includeNickname parameter to PlaylistRepository.createPlaylist()
+- Worker: Added getPlaylistClientPage() for full playlist rendering
+- Worker: Added getPlaylistBotPage() for enhanced bot Open Graph tags
+- Worker: Updated playlist_link_handler.js to distinguish between bots and users
+- Worker: Donation banner positioning fixed (position: relative instead of sticky)
+- Worker: Added top margin to donation banner for better spacing
+- All changes maintain backward compatibility with existing share links
+
 ## [1.5.0] - 2026-02-20
 
 ### What's New
@@ -360,7 +416,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deep linking support
 - Share intent handling
 
-[Unreleased]: https://github.com/FlazeIGuess/unitune/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/FlazeIGuess/unitune/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/FlazeIGuess/unitune/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/FlazeIGuess/unitune/compare/v1.4.4...v1.5.0
 [1.4.4]: https://github.com/FlazeIGuess/unitune/compare/v1.4.3...v1.4.4
 [1.4.3]: https://github.com/FlazeIGuess/unitune/compare/v1.4.2...v1.4.3

@@ -356,55 +356,6 @@ class _ChannelNote extends StatelessWidget {
   }
 }
 
-/// Ghost (outlined) button for secondary actions.
-class _GhostButton extends StatelessWidget {
-  final String label;
-  final IconData? icon;
-  final double height;
-  final VoidCallback onPressed;
-
-  const _GhostButton({
-    required this.label,
-    required this.onPressed,
-    this.icon,
-    this.height = 48,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassButton.custom(
-      onTap: onPressed,
-      height: height,
-      useOwnLayer: true,
-      shape: LiquidRoundedSuperellipse(borderRadius: AppTheme.radii.pill),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppTheme.radii.pill),
-          border: Border.all(color: AppTheme.colors.glassBorder, width: 1.0),
-        ),
-        child: Center(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 14, color: AppTheme.colors.textSecondary),
-                const SizedBox(width: 4),
-              ],
-              Text(
-                label,
-                style: AppTheme.typography.labelLarge.copyWith(
-                  color: AppTheme.colors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Primary filled button styled in the app's glass design language.
 class _PrimarySheetButton extends StatelessWidget {
   final String label;

@@ -14,6 +14,7 @@ class PrefsKeys {
   static const String interceptMusicLinks = 'intercept_music_links';
   static const String playlistShareTipDismissed =
       'playlist_share_tip_dismissed';
+  static const String userNickname = 'user_nickname';
 }
 
 /// Manages local preferences (100% local, no cloud sync)
@@ -76,6 +77,22 @@ class PreferencesManager {
     await _prefs.setBool(PrefsKeys.playlistShareTipDismissed, value);
   }
 
+  // === USER NICKNAME ===
+  String? get userNickname {
+    return _prefs.getString(PrefsKeys.userNickname);
+  }
+
+  Future<void> setUserNickname(String? nickname) async {
+    if (nickname == null || nickname.trim().isEmpty) {
+      await _prefs.remove(PrefsKeys.userNickname);
+    } else {
+      // Trim and limit to 20 characters
+      final trimmed = nickname.trim();
+      final limited = trimmed.length > 20 ? trimmed.substring(0, 20) : trimmed;
+      await _prefs.setString(PrefsKeys.userNickname, limited);
+    }
+  }
+
   // === CLEAR ALL (for testing/reset) ===
   Future<void> clearAll() async {
     await _prefs.clear();
@@ -111,6 +128,11 @@ final isOnboardingCompleteProvider = StateProvider<bool>((ref) {
 /// Provider for music link interception setting (reactive)
 final interceptMusicLinksProvider = StateProvider<bool>((ref) {
   return ref.watch(preferencesManagerProvider).interceptMusicLinks;
+});
+
+/// Provider for user nickname (reactive — updates UI on change)
+final userNicknameProvider = StateProvider<String?>((ref) {
+  return ref.watch(preferencesManagerProvider).userNickname;
 });
 
 // === HISTORY PROVIDERS ===

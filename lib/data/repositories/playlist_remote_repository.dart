@@ -22,12 +22,14 @@ class PlaylistRemoteData {
   final String title;
   final String? description;
   final List<PlaylistTrack> tracks;
+  final String? creatorNickname;
 
   PlaylistRemoteData({
     required this.id,
     required this.title,
     required this.description,
     required this.tracks,
+    this.creatorNickname,
   });
 }
 
@@ -42,6 +44,7 @@ class PlaylistRemoteRepository {
     final body = {
       'title': playlist.title,
       'description': playlist.description,
+      'creatorNickname': playlist.creatorNickname,
       'tracks': playlist.tracks
           .map(
             (track) => {
@@ -101,6 +104,7 @@ class PlaylistRemoteRepository {
       title: json['title'] as String,
       description: json['description'] as String?,
       tracks: tracks,
+      creatorNickname: json['creatorNickname'] as String?,
     );
   }
 }

@@ -13,6 +13,7 @@ class MiniPlaylist {
   final DateTime createdAt;
   final DateTime? lastModified;
   final bool isPublic;
+  final String? creatorNickname;
 
   const MiniPlaylist({
     required this.id,
@@ -23,6 +24,7 @@ class MiniPlaylist {
     required this.createdAt,
     this.lastModified,
     this.isPublic = false,
+    this.creatorNickname,
   });
 
   factory MiniPlaylist.fromJson(Map<String, dynamic> json) =>
@@ -49,6 +51,7 @@ class MiniPlaylist {
     DateTime? createdAt,
     DateTime? lastModified,
     bool? isPublic,
+    String? creatorNickname,
   }) {
     return MiniPlaylist(
       id: id ?? this.id,
@@ -59,6 +62,7 @@ class MiniPlaylist {
       createdAt: createdAt ?? this.createdAt,
       lastModified: lastModified ?? this.lastModified,
       isPublic: isPublic ?? this.isPublic,
+      creatorNickname: creatorNickname ?? this.creatorNickname,
     );
   }
 }

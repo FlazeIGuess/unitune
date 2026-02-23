@@ -160,6 +160,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
             SizedBox(height: AppTheme.spacing.xl),
 
+            // Welcome greeting
+            _buildWelcomeGreeting(),
+            SizedBox(height: AppTheme.spacing.m),
+
             // Statistics Card
             const StatisticsCard(),
             SizedBox(height: AppTheme.spacing.l),
@@ -184,6 +188,68 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             const SizedBox(height: 120),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildWelcomeGreeting() {
+    final nickname = ref.watch(userNicknameProvider);
+    final displayName = (nickname != null && nickname.trim().isNotEmpty)
+        ? nickname.trim()
+        : 'User';
+
+    return Row(
+      children: [
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              style: AppTheme.typography.titleLarge.copyWith(
+                color: AppTheme.colors.textPrimary,
+                fontFamily: 'ZalandoSansExpanded',
+              ),
+              children: [
+                const TextSpan(text: 'Welcome, '),
+                TextSpan(
+                  text: displayName,
+                  style: AppTheme.typography.titleLarge.copyWith(
+                    color: context.primaryColor,
+                    fontFamily: 'ZalandoSansExpanded',
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.edit_outlined, size: 18),
+          color: AppTheme.colors.textMuted,
+          tooltip: 'Edit nickname',
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            _showNicknameEditDialog();
+          },
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showNicknameEditDialog() async {
+    final currentNickname = ref.read(userNicknameProvider) ?? '';
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => _NicknameEditDialog(
+        initialNickname: currentNickname,
+        onSave: (newValue) async {
+          await ref
+              .read(preferencesManagerProvider)
+              .setUserNickname(newValue.isEmpty ? null : newValue);
+          ref.read(userNicknameProvider.notifier).state = newValue.isEmpty
+              ? null
+              : newValue;
+        },
       ),
     );
   }
@@ -690,3 +756,123 @@ final _mostReceivedServiceProvider = FutureProvider<MusicService?>((ref) async {
 
   return mostCommon.key;
 });
+
+/// Dialog for editing the user nickname.
+/// Owns its own [TextEditingController] so it is disposed via [State.dispose]
+/// after the close animation completes — never while the widget tree is still
+/// alive.
+class _NicknameEditDialog extends StatefulWidget {
+  final String initialNickname;
+  final Future<void> Function(String newValue) onSave;
+
+  const _NicknameEditDialog({
+    required this.initialNickname,
+    required this.onSave,
+  });
+
+  @override
+  State<_NicknameEditDialog> createState() => _NicknameEditDialogState();
+}
+
+class _NicknameEditDialogState extends State<_NicknameEditDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialNickname);
+  }
+
+  @override
+  void dispose() {
+    // Disposed by the framework AFTER the dialog's exit animation completes.
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppTheme.colors.backgroundDeep,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radii.large),
+        side: BorderSide(color: AppTheme.colors.glassBorder, width: 1),
+      ),
+      title: Text(
+        'Your Nickname',
+        style: AppTheme.typography.titleMedium.copyWith(
+          color: AppTheme.colors.textPrimary,
+          fontFamily: 'ZalandoSansExpanded',
+        ),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Shown to friends when you share songs.',
+            style: AppTheme.typography.bodyMedium.copyWith(
+              color: AppTheme.colors.textMuted,
+            ),
+          ),
+          SizedBox(height: AppTheme.spacing.m),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            maxLength: 20,
+            style: AppTheme.typography.bodyLarge.copyWith(
+              color: AppTheme.colors.textPrimary,
+            ),
+            decoration: InputDecoration(
+              hintText: 'e.g. Alex',
+              hintStyle: AppTheme.typography.bodyLarge.copyWith(
+                color: AppTheme.colors.textMuted,
+              ),
+              counterStyle: AppTheme.typography.labelMedium.copyWith(
+                color: AppTheme.colors.textMuted,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radii.medium),
+                borderSide: BorderSide(color: AppTheme.colors.glassBorder),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radii.medium),
+                borderSide: BorderSide(
+                  color: Theme.of(context).colorScheme.primary,
+                  width: 1.5,
+                ),
+              ),
+              filled: true,
+              fillColor: AppTheme.colors.glassBase,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(
+            'Cancel',
+            style: AppTheme.typography.labelLarge.copyWith(
+              color: AppTheme.colors.textMuted,
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: () async {
+            final newValue = _controller.text.trim();
+            await widget.onSave(newValue);
+            if (context.mounted) Navigator.of(context).pop();
+          },
+          child: Text(
+            'Save',
+            style: AppTheme.typography.labelLarge.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

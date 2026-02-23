@@ -188,7 +188,16 @@ class _ProcessingScreenV2State extends ConsumerState<ProcessingScreenV2>
   }
 
   String _generateShareLink(UnituneResponse response) {
-    return UniTuneLinkEncoder.createShareLinkFromUrl(widget.incomingLink);
+    String? nickname;
+    try {
+      nickname = ref.read(preferencesManagerProvider).userNickname;
+    } catch (e) {
+      debugPrint('Cannot read nickname: $e');
+    }
+    return UniTuneLinkEncoder.createShareLinkFromUrl(
+      widget.incomingLink,
+      nickname: nickname,
+    );
   }
 
   void _showServiceSheet() {
