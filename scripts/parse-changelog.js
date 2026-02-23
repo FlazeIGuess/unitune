@@ -119,15 +119,22 @@ function parseChangelog(content) {
       // Skip comment lines and blank lines
       if (/^\s*(<!--|$)/.test(line)) continue;
 
-      // Match:  - [icon_name] Title — Body text
-      const bulletRe = /^-\s+\[([^\]]+)\]\s+([^—–-]+)[—–-]+\s*(.+)$/u;
-      const m = line.match(bulletRe);
-      if (m) {
-        whatsNew.push({
-          icon: m[1].trim(),
-          title: m[2].trim(),
-          body: m[3].trim(),
-        });
+      // Match leading:  - [icon_name] ...
+      const prefix = line.match(/^-\s+\[([^\]]+)\]\s+/);
+      if (prefix) {
+        const rest = line.slice(prefix[0].length);
+        // Split on the first em dash (—, U+2014) or en dash (–, U+2013)
+        const dashPos = rest.search(/[\u2013\u2014]/);
+        if (dashPos !== -1) {
+          whatsNew.push({
+            icon: prefix[1].trim(),
+            title: rest.slice(0, dashPos).trim(),
+            body: rest.slice(dashPos + 1).trim(),
+          });
+        } else {
+          // No dash separator — treat the rest as the title only
+          whatsNew.push({ icon: prefix[1].trim(), title: rest.trim(), body: '' });
+        }
       } else if (/^-\s+/.test(line)) {
         // Fallback: plain bullet without icon — use a generic icon
         const text = line.replace(/^-\s+/, '').trim();
