@@ -44,6 +44,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   final PageController _pageController = PageController();
   MusicService? _serviceFilter;
 
+  /// Guards against overlapping re-convert requests fired by repeated taps.
+  bool _isBusy = false;
+
   @override
   void dispose() {
     _pageController.dispose();
@@ -76,7 +79,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   }
 
   Future<void> _onEntryTap(HistoryEntry entry) async {
-    // Show action sheet with Share and Open options
+    // Show action sheet with Share, Open and Delete options
     await HistoryActionSheet.show(
       context: context,
       title: entry.title,
@@ -85,23 +88,69 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       thumbnailUrl: entry.thumbnailUrl,
       onShare: () => _shareEntry(entry),
       onOpen: () => _openEntry(entry),
+      onDelete: () => _onEntryDelete(entry),
     );
   }
 
-  /// Share the entry again - re-convert the link and share via messenger
-  Future<void> _shareEntry(HistoryEntry entry) async {
-    try {
-      // Show loading indicator
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Converting link...'),
-          backgroundColor: AppTheme.colors.backgroundCard,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
+  /// Shows a blocking progress dialog while [action] runs.
+  ///
+  /// Re-converting a link is a network round trip that can take several
+  /// seconds. A transient SnackBar left the screen looking idle, so users
+  /// tapped again and fired duplicate requests.
+  Future<void> _runWithProgress(
+    String message,
+    Future<void> Function() action,
+  ) async {
+    if (_isBusy) return;
+    _isBusy = true;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          backgroundColor: AppTheme.colors.backgroundDeep,
+          content: Row(
+            children: [
+              SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: context.primaryColor,
+                ),
+              ),
+              SizedBox(width: AppTheme.spacing.l),
+              Expanded(
+                child: Text(
+                  message,
+                  style: AppTheme.typography.bodyMedium.copyWith(
+                    color: AppTheme.colors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      );
+      ),
+    );
 
+    try {
+      await action();
+    } finally {
+      _isBusy = false;
+      if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+    }
+  }
+
+  /// Share the entry again - re-convert the link and share via messenger
+  Future<void> _shareEntry(HistoryEntry entry) =>
+      _runWithProgress('Converting link...', () => _shareEntryInner(entry));
+
+  Future<void> _shareEntryInner(HistoryEntry entry) async {
+    try {
       // Re-convert the link using UniTune API
       final unituneRepo = UnituneRepository();
       final response = await unituneRepo.getLinks(entry.originalUrl);
@@ -111,7 +160,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Unable to convert link'),
+            content: const Text(
+              'Could not convert this link. Check your connection and try again.',
+            ),
             backgroundColor: AppTheme.colors.accentError,
             behavior: SnackBarBehavior.floating,
           ),
@@ -119,10 +170,22 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         return;
       }
 
-      // Generate UniTune share link
-      final shareLink = UniTuneLinkEncoder.createShareLinkFromUrl(
-        entry.originalUrl,
-      );
+      // Generate UniTune share link.
+      // The nickname must be included here too, otherwise re-sharing from
+      // History silently drops the sender name that a fresh share includes.
+      final nickname = ref.read(preferencesManagerProvider).userNickname;
+      String shareLink;
+      try {
+        shareLink = UniTuneLinkEncoder.createShareLinkFromUrl(
+          entry.originalUrl,
+          nickname: nickname,
+        );
+      } on UnsupportedError {
+        // Encoder cannot represent this platform — share the raw link rather
+        // than failing the whole action.
+        debugPrint('Share link encoding unsupported, using original URL');
+        shareLink = entry.originalUrl;
+      }
 
       // Get preferred messenger
       final messenger = ref.read(preferredMessengerProvider);
@@ -157,6 +220,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         final uri = Uri.parse(launchUrlString);
         if (await canLaunchUrl(uri)) {
           await launchUrl(uri, mode: LaunchMode.externalApplication);
+          await _recordReshare(entry, shareLink);
           return;
         } else {
           // App not installed - fallback to system share
@@ -171,6 +235,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           message,
           subject: 'Check out this ${_contentLabel(entry)} on UniTune',
         );
+        await _recordReshare(entry, shareLink);
       } catch (e) {
         debugPrint('Error showing system share: $e');
         if (!mounted) return;
@@ -192,6 +257,34 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
+    }
+  }
+
+  /// Records a re-share so statistics and the Shared tab stay truthful.
+  ///
+  /// Sharing from the History screen used to leave no trace at all, so the
+  /// share counters silently under-reported every repeat share.
+  Future<void> _recordReshare(HistoryEntry entry, String shareLink) async {
+    try {
+      await ref
+          .read(historyRepositoryProvider)
+          .add(
+            HistoryEntry(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              title: entry.title,
+              artist: entry.artist,
+              thumbnailUrl: entry.thumbnailUrl,
+              originalUrl: entry.originalUrl,
+              uniTuneUrl: shareLink,
+              type: HistoryType.shared,
+              contentType: entry.contentType,
+              timestamp: DateTime.now(),
+            ),
+          );
+      if (!mounted) return;
+      ref.invalidate(sharedHistoryProvider);
+    } catch (e) {
+      debugPrint('Error recording re-share: $e');
     }
   }
 
@@ -246,19 +339,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   }
 
   /// Open the entry in the preferred music app
-  Future<void> _openEntry(HistoryEntry entry) async {
-    try {
-      // Show loading indicator
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Opening...'),
-          backgroundColor: AppTheme.colors.backgroundCard,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 1),
-        ),
-      );
+  Future<void> _openEntry(HistoryEntry entry) =>
+      _runWithProgress('Opening...', () => _openEntryInner(entry));
 
+  Future<void> _openEntryInner(HistoryEntry entry) async {
+    try {
       // Get the links from UniTune API
       final unituneRepo = UnituneRepository();
       final response = await unituneRepo.getLinks(entry.originalUrl);
@@ -268,7 +353,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Unable to open link'),
+            content: const Text(
+              'Could not open this link. Check your connection and try again.',
+            ),
             backgroundColor: AppTheme.colors.accentError,
             behavior: SnackBarBehavior.floating,
           ),
@@ -316,21 +403,30 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   }
 
   Future<void> _onEntryDelete(HistoryEntry entry) async {
-    await ref.read(historyRepositoryProvider).delete(entry.id);
+    final repository = ref.read(historyRepositoryProvider);
+    await repository.delete(entry.id);
     await _refreshHistory();
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${entry.title} deleted'),
-          backgroundColor: AppTheme.colors.backgroundCard,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radii.small),
-          ),
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${entry.title} removed'),
+        backgroundColor: AppTheme.colors.backgroundCard,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radii.small),
         ),
-      );
-    }
+        // Deletion is destructive and one tap away — always offer an undo.
+        action: SnackBarAction(
+          label: 'Undo',
+          textColor: context.primaryColor,
+          onPressed: () async {
+            await repository.add(entry);
+            await _refreshHistory();
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -373,8 +469,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         serviceFilter: _serviceFilter,
                         resolveService: _resolveServiceFromUrl,
                         onEntryTap: _onEntryTap,
-                        onEntryDelete: _onEntryDelete,
                         onRefresh: _refreshHistory,
+                        onClearFilter: () => _handleServiceFilter(null),
                         bundleEntries: true,
                       ),
                       _HistoryTab(
@@ -385,8 +481,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         serviceFilter: _serviceFilter,
                         resolveService: _resolveServiceFromUrl,
                         onEntryTap: _onEntryTap,
-                        onEntryDelete: _onEntryDelete,
                         onRefresh: _refreshHistory,
+                        onClearFilter: () => _handleServiceFilter(null),
                         bundleEntries: true,
                       ),
                     ],
@@ -447,11 +543,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       isDestructive: true,
     );
 
-    if (confirmed == true && mounted) {
+    if (confirmed == true && context.mounted) {
       await ref.read(historyRepositoryProvider).clearAll();
       await _refreshHistory();
 
-      if (mounted) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('History cleared'),
@@ -567,8 +663,10 @@ class _HistoryTab extends ConsumerWidget {
   final MusicService? serviceFilter;
   final MusicService? Function(HistoryEntry entry) resolveService;
   final Function(HistoryEntry) onEntryTap;
-  final Function(HistoryEntry) onEntryDelete;
   final Future<void> Function() onRefresh;
+
+  /// Resets the service filter from the "no matches" empty state.
+  final VoidCallback onClearFilter;
 
   /// When true, entries with the same URL are grouped and a count badge is shown.
   final bool bundleEntries;
@@ -581,8 +679,8 @@ class _HistoryTab extends ConsumerWidget {
     required this.serviceFilter,
     required this.resolveService,
     required this.onEntryTap,
-    required this.onEntryDelete,
     required this.onRefresh,
+    required this.onClearFilter,
     this.bundleEntries = false,
   });
 
@@ -605,7 +703,13 @@ class _HistoryTab extends ConsumerWidget {
             : entries.where((e) => resolveService(e) == serviceFilter).toList();
 
         if (filteredEntries.isEmpty) {
-          return _buildEmptyState(context);
+          // Distinguish "you have no history" from "your filter matched
+          // nothing" — showing the former while a filter is active reads like
+          // the app lost the user's data.
+          return _buildEmptyState(
+            context,
+            isFiltered: serviceFilter != null && entries.isNotEmpty,
+          );
         }
 
         // Bundle duplicate received entries by original URL when requested
@@ -675,7 +779,7 @@ class _HistoryTab extends ConsumerWidget {
     return result;
   }
 
-  Widget _buildEmptyState(BuildContext context) {
+  Widget _buildEmptyState(BuildContext context, {bool isFiltered = false}) {
     return Center(
       child: Padding(
         padding: EdgeInsets.all(AppTheme.spacing.xxl),
@@ -690,14 +794,14 @@ class _HistoryTab extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(AppTheme.radii.xLarge),
               ),
               child: Icon(
-                emptyIcon,
+                isFiltered ? Icons.filter_alt_off_outlined : emptyIcon,
                 size: 40,
                 color: context.primaryColor.withValues(alpha: 0.6),
               ),
             ),
             SizedBox(height: AppTheme.spacing.l),
             Text(
-              emptyTitle,
+              isFiltered ? 'Nothing matches this filter' : emptyTitle,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: AppTheme.colors.textSecondary,
                 fontFamily: 'ZalandoSansExpanded',
@@ -706,12 +810,22 @@ class _HistoryTab extends ConsumerWidget {
             ),
             SizedBox(height: AppTheme.spacing.xs),
             Text(
-              emptySubtitle,
+              isFiltered
+                  ? 'Pick "All" above to see everything again.'
+                  : emptySubtitle,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: AppTheme.colors.textMuted,
               ),
               textAlign: TextAlign.center,
             ),
+            if (isFiltered) ...[
+              SizedBox(height: AppTheme.spacing.l),
+              InlineGlassButton(
+                label: 'Clear filter',
+                icon: Icons.clear,
+                onPressed: onClearFilter,
+              ),
+            ],
           ],
         ),
       ),

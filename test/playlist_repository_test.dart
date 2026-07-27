@@ -38,25 +38,28 @@ void main() {
     expect(byId!.title, 'My Playlist');
   });
 
-  test('received playlists are stored separately from shared history', () async {
-    final prefs = await SharedPreferences.getInstance();
-    final repo = PlaylistRepository(prefs);
+  test(
+    'received playlists are stored separately from shared history',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final repo = PlaylistRepository(prefs);
 
-    final playlist = await repo.createPlaylist(
-      title: 'Imported',
-      tracks: [buildTrack('2')],
-    );
-    await repo.saveReceivedPlaylist(playlist);
-    await repo.saveSharedPlaylist(playlist);
+      final playlist = await repo.createPlaylist(
+        title: 'Imported',
+        tracks: [buildTrack('2')],
+      );
+      await repo.saveReceivedPlaylist(playlist);
+      await repo.saveSharedPlaylist(playlist);
 
-    final received = await repo.getReceivedHistory();
-    final shared = await repo.getSharedHistory();
-    final created = await repo.getAll();
+      final received = await repo.getReceivedHistory();
+      final shared = await repo.getSharedHistory();
+      final created = await repo.getAll();
 
-    expect(received.length, 1);
-    expect(shared.length, 1);
-    expect(created.length, 1);
-  });
+      expect(received.length, 1);
+      expect(shared.length, 1);
+      expect(created.length, 1);
+    },
+  );
 
   test('delete removes playlist from created and received lists', () async {
     final prefs = await SharedPreferences.getInstance();
@@ -76,4 +79,49 @@ void main() {
     expect(created, isEmpty);
     expect(received, isEmpty);
   });
+
+  test(
+    'findLocalIdForRemote resolves a previously imported playlist',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final repo = PlaylistRepository(prefs);
+
+      final playlist = await repo.createReceivedPlaylist(
+        title: 'From a friend',
+        tracks: [buildTrack('1')],
+      );
+      await repo.saveRemotePlaylistMapping(playlist.id, 'remote-abc', '');
+
+      expect(await repo.findLocalIdForRemote('remote-abc'), playlist.id);
+      expect(await repo.findLocalIdForRemote('remote-unknown'), isNull);
+    },
+  );
+
+  test(
+    'updateReceivedPlaylistTracks persists resolved platform links',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final repo = PlaylistRepository(prefs);
+
+      final playlist = await repo.createReceivedPlaylist(
+        title: 'From a friend',
+        tracks: [buildTrack('1'), buildTrack('2')],
+      );
+
+      final converted = playlist.tracks.first.copyWith(
+        convertedLinks: const {'spotify': 'https://open.spotify.com/track/x'},
+      );
+      await repo.updateReceivedPlaylistTracks(playlist.id, [
+        converted,
+        playlist.tracks.last,
+      ]);
+
+      final stored = await repo.getReceivedHistory();
+      expect(
+        stored.first.tracks.first.convertedLinks['spotify'],
+        'https://open.spotify.com/track/x',
+      );
+      expect(stored.first.tracks.last.convertedLinks, isEmpty);
+    },
+  );
 }

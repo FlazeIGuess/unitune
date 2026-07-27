@@ -18,7 +18,12 @@ import '../widgets/onboarding_navigation_buttons.dart';
 class WelcomeScreen extends StatefulWidget {
   final VoidCallback onContinue;
 
-  const WelcomeScreen({super.key, required this.onContinue});
+  /// Optional escape hatch, supplied when the tutorial was opened from inside
+  /// the app rather than shown as first-run onboarding. Null on first run,
+  /// where there is nothing to return to yet.
+  final VoidCallback? onClose;
+
+  const WelcomeScreen({super.key, required this.onContinue, this.onClose});
 
   @override
   State<WelcomeScreen> createState() => _WelcomeScreenState();
@@ -119,8 +124,19 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   padding: EdgeInsets.all(AppTheme.spacing.l),
                   child: Column(
                     children: [
-                      // Progress indicator
-                      _buildProgressIndicator(),
+                      // Progress indicator + close affordance
+                      Row(
+                        children: [
+                          Expanded(child: _buildProgressIndicator()),
+                          if (widget.onClose != null)
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              color: AppTheme.colors.textSecondary,
+                              tooltip: 'Close tutorial',
+                              onPressed: widget.onClose,
+                            ),
+                        ],
+                      ),
 
                       const Spacer(),
 

@@ -31,6 +31,9 @@ class PlaylistCreatorScreen extends ConsumerStatefulWidget {
 }
 
 class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
+  static const int _maxTitleLength = 50;
+  static const int _maxDescriptionLength = 200;
+
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _linkController = TextEditingController();
@@ -85,11 +88,92 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
       ref.read(playlistIncomingLinkProvider.notifier).state = null;
     });
 
-    final canCreate = _tracks.isNotEmpty && _titleController.text.isNotEmpty;
-    final titleLength = _titleController.text.length;
-    final descriptionLength = _descriptionController.text.length;
+    final titleLength = _titleController.text.trim().length;
+    final descriptionLength = _descriptionController.text.trim().length;
+    // Length limits are shown as errors, so they must also block creation —
+    // otherwise the form contradicts itself and lets an invalid playlist through.
+    final canCreate =
+        _tracks.isNotEmpty &&
+        titleLength > 0 &&
+        titleLength <= _maxTitleLength &&
+        descriptionLength <= _maxDescriptionLength &&
+        !_isCreating;
     final bottomPadding = AppTheme.spacing.xl * 5;
 
+    return PopScope(
+      // Guard the system back gesture the same way as the close button:
+      // a half-built playlist represents real user effort.
+      canPop: !_hasUnsavedWork,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (await _confirmDiscard() && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: _buildScaffold(
+        context,
+        canCreate,
+        titleLength,
+        descriptionLength,
+        bottomPadding,
+      ),
+    );
+  }
+
+  /// True when the user has entered anything that would be lost on exit.
+  bool get _hasUnsavedWork =>
+      _tracks.isNotEmpty ||
+      _titleController.text.trim().isNotEmpty ||
+      _descriptionController.text.trim().isNotEmpty;
+
+  /// Asks before throwing away an in-progress playlist. Returns true when the
+  /// user confirms (or when there is nothing to lose).
+  Future<bool> _confirmDiscard() async {
+    if (!_hasUnsavedWork) return true;
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.colors.backgroundDeep,
+        title: Text(
+          'Discard playlist?',
+          style: AppTheme.typography.titleMedium.copyWith(
+            color: AppTheme.colors.textPrimary,
+            fontFamily: 'ZalandoSansExpanded',
+          ),
+        ),
+        content: Text(
+          _tracks.isEmpty
+              ? 'Your playlist details will be lost.'
+              : 'Your ${_tracks.length} added '
+                    '${_tracks.length == 1 ? "track" : "tracks"} and details will be lost.',
+          style: AppTheme.typography.bodyMedium.copyWith(
+            color: AppTheme.colors.textSecondary,
+          ),
+        ),
+        actions: [
+          InlineGlassButton(
+            label: 'Keep editing',
+            onPressed: () => Navigator.of(ctx).pop(false),
+            color: AppTheme.colors.textMuted,
+          ),
+          InlineGlassButton(
+            label: 'Discard',
+            onPressed: () => Navigator.of(ctx).pop(true),
+            color: AppTheme.colors.accentError,
+          ),
+        ],
+      ),
+    );
+    return discard ?? false;
+  }
+
+  Widget _buildScaffold(
+    BuildContext context,
+    bool canCreate,
+    int titleLength,
+    int descriptionLength,
+    double bottomPadding,
+  ) {
     return Scaffold(
       resizeToAvoidBottomInset: false,
       body: Stack(
@@ -159,9 +243,12 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
           IconButton(
             icon: const Icon(Icons.close),
             color: AppTheme.colors.textSecondary,
-            onPressed: () {
+            tooltip: 'Close',
+            onPressed: () async {
               HapticFeedback.lightImpact();
-              Navigator.of(context).pop();
+              if (await _confirmDiscard() && context.mounted) {
+                Navigator.of(context).pop();
+              }
             },
           ),
           SizedBox(width: AppTheme.spacing.s),
@@ -192,8 +279,8 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
   }
 
   Widget _buildInputSection(int titleLength, int descriptionLength) {
-    final titleError = titleLength > 50;
-    final descriptionError = descriptionLength > 200;
+    final titleError = titleLength > _maxTitleLength;
+    final descriptionError = descriptionLength > _maxDescriptionLength;
     final userNickname = ref.watch(preferencesManagerProvider).userNickname;
     final hasNickname = userNickname != null && userNickname.isNotEmpty;
 
@@ -242,7 +329,7 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
                   else
                     const SizedBox.shrink(),
                   Text(
-                    '$titleLength/50',
+                    '$titleLength/$_maxTitleLength',
                     style: AppTheme.typography.labelMedium.copyWith(
                       color: titleError
                           ? AppTheme.colors.accentError
@@ -265,7 +352,7 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
               Align(
                 alignment: Alignment.centerRight,
                 child: Text(
-                  '$descriptionLength/200',
+                  '$descriptionLength/$_maxDescriptionLength',
                   style: AppTheme.typography.labelMedium.copyWith(
                     color: descriptionError
                         ? AppTheme.colors.accentError
@@ -313,7 +400,7 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
                         HapticFeedback.selectionClick();
                         setState(() => _includeNickname = value);
                       },
-                      activeColor: context.primaryColor,
+                      activeThumbColor: context.primaryColor,
                     ),
                   ],
                 ),
@@ -616,6 +703,7 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
     final target = _musicServiceUri(preferred);
     if (await canLaunchUrl(target)) {
       await launchUrl(target, mode: LaunchMode.externalApplication);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Share a song to UniTune from your music app'),
@@ -626,6 +714,7 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
       return;
     }
 
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Could not open ${preferred.name}'),
@@ -873,11 +962,6 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
               ),
             );
           },
-          onEnd: () {
-            if (mounted && _tracks.isEmpty) {
-              setState(() {});
-            }
-          },
         ),
         SizedBox(height: AppTheme.spacing.l),
         Text(
@@ -1027,6 +1111,7 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
     try {
       final validation = UrlValidator.validateAndSanitize(url);
       if (!validation.isValid) {
+        if (!mounted) return;
         setState(() {
           _addError = validation.errorMessage ?? 'Invalid link';
           _isAddingTrack = false;
@@ -1036,20 +1121,24 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
 
       if (_tracks.any((t) => t.originalUrl == validation.sanitizedUrl)) {
         setState(() => _isAddingTrack = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Song already added'),
-            backgroundColor: AppTheme.colors.backgroundCard,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Song already added'),
+              backgroundColor: AppTheme.colors.backgroundCard,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
         return;
       }
 
       final response = await _unituneRepo.getLinks(validation.sanitizedUrl);
       if (response == null) {
+        if (!mounted) return;
         setState(() {
-          _addError = 'Could not fetch track information';
+          _addError =
+              'Could not load this song. Check your connection and try again.';
           _isAddingTrack = false;
         });
         return;
@@ -1073,9 +1162,12 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
       _addTrackToList(track);
       _linkController.clear();
     } catch (e) {
-      setState(() {
-        _addError = 'Error: $e';
-      });
+      debugPrint('PlaylistCreator.addTrack error: $e');
+      if (mounted) {
+        setState(() {
+          _addError = 'Could not add this song. Please try again.';
+        });
+      }
     } finally {
       if (mounted) {
         setState(() => _isAddingTrack = false);
@@ -1083,20 +1175,18 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
     }
   }
 
-  void _addTrackFromHistory(HistoryEntry entry) {
-    final track = PlaylistTrack(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: entry.title,
-      artist: entry.artist,
-      originalUrl: entry.originalUrl,
-      thumbnailUrl: entry.thumbnailUrl,
-      convertedLinks: const {},
-      addedAt: DateTime.now(),
-    );
-    _addTrackToList(track);
+  /// Adds a track picked from the local history.
+  ///
+  /// Routed through [_addTrackFromUrl] on purpose: history entries store only
+  /// the original URL, so building a track straight from them would produce
+  /// empty `convertedLinks` and the song would be unplayable for anyone on a
+  /// different streaming service.
+  Future<void> _addTrackFromHistory(HistoryEntry entry) {
+    return _addTrackFromUrl(entry.originalUrl);
   }
 
   void _addTrackToList(PlaylistTrack track) {
+    if (!mounted) return;
     final duplicate = _tracks.any((t) => t.originalUrl == track.originalUrl);
     if (duplicate) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1109,12 +1199,10 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
       return;
     }
 
-    if (mounted) {
-      setState(() {
-        _tracks.add(track);
-      });
-      HapticFeedback.mediumImpact();
-    }
+    setState(() {
+      _tracks.add(track);
+    });
+    HapticFeedback.mediumImpact();
   }
 
   void _removeTrack(int index) {
@@ -1140,10 +1228,16 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
   }
 
   Future<void> _createPlaylist() async {
-    if (_tracks.isEmpty || _titleController.text.isEmpty) return;
+    final title = _titleController.text.trim();
+    final description = _descriptionController.text.trim();
+    if (_tracks.isEmpty || title.isEmpty || _isCreating) return;
+    if (title.length > _maxTitleLength ||
+        description.length > _maxDescriptionLength) {
+      return;
+    }
 
     debugPrint(
-      'PlaylistCreator.create start title="${_titleController.text}" tracks=${_tracks.length} includeNickname=$_includeNickname',
+      'PlaylistCreator.create start title="$title" tracks=${_tracks.length} includeNickname=$_includeNickname',
     );
     setState(() => _isCreating = true);
 
@@ -1151,11 +1245,9 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
       final repo = ref.read(playlistRepositoryProvider);
       final remoteRepo = ref.read(playlistRemoteRepositoryProvider);
       final playlist = await repo.createPlaylist(
-        title: _titleController.text,
+        title: title,
         tracks: _tracks,
-        description: _descriptionController.text.isEmpty
-            ? null
-            : _descriptionController.text,
+        description: description.isEmpty ? null : description,
         includeNickname: _includeNickname,
       );
       debugPrint('PlaylistCreator.create local id=${playlist.id}');
@@ -1172,18 +1264,40 @@ class _PlaylistCreatorScreenState extends ConsumerState<PlaylistCreatorScreen> {
         debugPrint('PlaylistCreator.create remote failed');
       }
 
-      if (mounted) {
-        ref.invalidate(playlistsProvider);
-        debugPrint('PlaylistCreator.create invalidate playlistsProvider');
-        context.go('/playlists/${playlist.id}/created');
+      if (!mounted) return;
+      ref.invalidate(playlistsProvider);
+      debugPrint('PlaylistCreator.create invalidate playlistsProvider');
+
+      // The playlist exists locally either way, but without a remote copy it
+      // cannot be shared yet. Say so instead of dropping the user on a share
+      // screen whose share button will fail.
+      if (remote == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Playlist saved, but it could not be published yet. '
+              'Sharing will retry when you are back online.',
+            ),
+            backgroundColor: AppTheme.colors.accentWarning,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
       }
+
+      // pushReplacement, not go: swaps the creator for the success screen while
+      // keeping the playlists list underneath, so Back still works afterwards.
+      context.pushReplacement('/playlists/${playlist.id}/created');
     } catch (e) {
       debugPrint('PlaylistCreator.create error $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error creating playlist: $e'),
+            content: const Text(
+              'Could not create the playlist. Please try again.',
+            ),
             backgroundColor: AppTheme.colors.accentError,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }

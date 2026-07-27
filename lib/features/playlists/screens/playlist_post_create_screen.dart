@@ -28,6 +28,10 @@ class _PlaylistPostCreateScreenState
   RewardedAd? _rewardedAd;
   bool _isAdLoading = false;
 
+  /// True while the playlist is being published, so the Share button can show
+  /// progress instead of appearing unresponsive during the network call.
+  bool _isSharing = false;
+
   @override
   void initState() {
     super.initState();
@@ -65,15 +69,23 @@ class _PlaylistPostCreateScreenState
     BuildContext context,
     MiniPlaylist playlist,
   ) async {
+    if (_isSharing) return;
     HapticFeedback.mediumImpact();
     final shareService = ref.read(playlistShareServiceProvider);
+
+    setState(() => _isSharing = true);
     final shareLink = await shareService.resolveShareLink(ref, playlist);
+    if (mounted) setState(() => _isSharing = false);
+
     if (shareLink == null) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Failed to create share link'),
+            content: const Text(
+              'Could not publish this playlist. Check your connection and try again.',
+            ),
             backgroundColor: AppTheme.colors.accentError,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
@@ -92,7 +104,9 @@ class _PlaylistPostCreateScreenState
 
   void _openPlaylist(BuildContext context) {
     HapticFeedback.lightImpact();
-    context.go('/playlists/${widget.playlistId}');
+    // pushReplacement keeps the playlists list below this screen, so Back from
+    // the detail view returns there instead of exiting the app.
+    context.pushReplacement('/playlists/${widget.playlistId}');
   }
 
   void _supportUniTune(BuildContext context) {
@@ -222,6 +236,7 @@ class _PlaylistPostCreateScreenState
                             SizedBox(height: AppTheme.spacing.xl),
                             PrimaryButton(
                               label: 'Share Playlist',
+                              isLoading: _isSharing,
                               onPressed: () =>
                                   _sharePlaylist(context, playlist),
                               icon: Icons.share,
@@ -261,7 +276,14 @@ class _PlaylistPostCreateScreenState
           IconButton(
             icon: const Icon(Icons.close),
             color: AppTheme.colors.textSecondary,
-            onPressed: () => context.go('/home'),
+            tooltip: 'Close',
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/home');
+              }
+            },
           ),
           SizedBox(width: AppTheme.spacing.m),
           Text(

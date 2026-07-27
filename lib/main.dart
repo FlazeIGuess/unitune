@@ -17,6 +17,7 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/dynamic_theme.dart';
 import 'core/theme/dynamic_color_provider.dart';
 import 'core/security/url_validator.dart';
+import 'core/constants/services.dart';
 import 'core/utils/link_encoder.dart';
 import 'core/ads/ad_helper.dart';
 import 'core/ads/consent_helper.dart';
@@ -582,7 +583,9 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
           debugPrint(
             'Skipping unitune:// deep link in share intent (handled by _handleDeepLink): $text',
           );
-          return;
+          // continue, not return: a multi-item share must not be abandoned
+          // because its first item happened to be a deep link.
+          continue;
         }
 
         // Extract URL from text (Spotify shares include extra text)
@@ -594,19 +597,23 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
           final mode = _determineMode(link);
           debugPrint('Determined mode: $mode');
 
-          // Handle playlist links
-          if (link.contains('/p/')) {
-            try {
-              final uri = Uri.parse(link);
+          // Handle playlist links. Scoped to unitune hosts — a bare '/p/'
+          // substring test also matched unrelated streaming URLs.
+          try {
+            final uri = Uri.parse(link);
+            if (uri.host.toLowerCase().contains('unitune') &&
+                uri.path.startsWith('/p/')) {
               final playlistId = uri.path.replaceFirst('/p/', '');
               if (playlistId.isNotEmpty) {
                 _navigateToPlaylistImport(playlistId);
                 return;
               }
-            } catch (_) {
-              _showErrorDialog('Invalid playlist link');
+              _showErrorDialog('This playlist link is incomplete.');
               return;
             }
+          } catch (_) {
+            _showErrorDialog('Invalid playlist link');
+            return;
           }
 
           // Extract actual music URL if it's a unitune link
@@ -778,8 +785,16 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
     });
   }
 
-  /// Opens music directly in preferred app without API call
-  /// Used when metadata is already available from web landing page
+  /// Opens a shared music link, converting it to the user's preferred service.
+  ///
+  /// The fast path exists to skip the processing screen when the sender's
+  /// landing page already supplied metadata. It must still honour the user's
+  /// preferred service: opening the *sender's* platform link directly defeats
+  /// the entire purpose of the app for anyone on a different service.
+  ///
+  /// Only when the link already points at the preferred service — or no
+  /// preference is set — do we launch it verbatim; otherwise we route through
+  /// the processing screen, which performs the conversion.
   Future<void> _openDirectlyInMusicApp(String musicUrl) async {
     final musicService = ref.read(preferredMusicServiceProvider);
 
@@ -787,12 +802,43 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
     debugPrint('Music URL: $musicUrl');
     debugPrint('Preferred service: ${musicService?.name ?? "none"}');
 
+    if (musicService != null && !_urlMatchesService(musicUrl, musicService)) {
+      debugPrint(
+        '=== Link is not on the preferred service, converting via /process ===',
+      );
+      if (_shouldSkipDuplicate(musicUrl, ProcessingMode.open)) return;
+      _markHandled(musicUrl, ProcessingMode.open);
+      _navigateToProcessing(musicUrl, ProcessingMode.open);
+      return;
+    }
+
     try {
       final uri = Uri.parse(musicUrl);
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (e) {
       debugPrint('Error opening music URL: $e');
       _showErrorDialog('Could not open the music link. Please try again.');
+    }
+  }
+
+  /// True when [url] already points at [service], so no conversion is needed.
+  bool _urlMatchesService(String url, MusicService service) {
+    final lower = url.toLowerCase();
+    switch (service) {
+      case MusicService.spotify:
+        return lower.contains('spotify.com') || lower.contains('spotify.link');
+      case MusicService.appleMusic:
+        return lower.contains('music.apple.com');
+      case MusicService.tidal:
+        return lower.contains('tidal.com');
+      case MusicService.youtubeMusic:
+        return lower.contains('music.youtube.com') ||
+            lower.contains('youtu.be');
+      case MusicService.deezer:
+        return lower.contains('deezer.com') ||
+            lower.contains('deezer.page.link');
+      case MusicService.amazonMusic:
+        return lower.contains('music.amazon');
     }
   }
 
@@ -825,6 +871,19 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
     _sharingSub?.cancel();
     _router.dispose();
     super.dispose();
+  }
+
+  /// Back navigation inside the onboarding flow.
+  ///
+  /// Pops when this step was pushed on top of another; falls back to a direct
+  /// jump for the (rare) case where the step is the only entry on the stack,
+  /// e.g. after a deep link landed mid-flow.
+  static void _onboardingBack(BuildContext context, String fallback) {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(fallback);
+    }
   }
 
   /// Creates the GoRouter ONCE. Must not be called in build().
@@ -861,13 +920,21 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
         router.go('/home');
       },
       routes: [
-        // Onboarding flow
+        // Onboarding flow.
+        //
+        // Forward steps push and back steps pop, so the same flow works as
+        // first-run onboarding AND as a re-runnable tutorial opened from Home.
+        // With go() the tutorial replaced the entire stack, leaving the user
+        // trapped until they walked through every remaining step.
         GoRoute(
           path: '/onboarding/welcome',
           pageBuilder: (context, state) => CustomTransitionPage(
             key: state.pageKey,
             child: WelcomeScreen(
-              onContinue: () => context.go('/onboarding/music'),
+              onContinue: () => context.push('/onboarding/music'),
+              // Only offered when there is somewhere to return to, i.e. the
+              // tutorial was opened from inside the app.
+              onClose: context.canPop() ? () => context.pop() : null,
             ),
             transitionsBuilder: _fadeSlideTransition,
             transitionDuration: const Duration(milliseconds: 350),
@@ -878,13 +945,13 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
           pageBuilder: (context, state) => CustomTransitionPage(
             key: state.pageKey,
             child: MusicServiceSelector(
-              onBack: () => context.go('/onboarding/welcome'),
+              onBack: () => _onboardingBack(context, '/onboarding/welcome'),
               onContinue: () {
                 // Conditional navigation based on platform
                 if (Platform.isAndroid) {
-                  context.go('/onboarding/link-interception');
+                  context.push('/onboarding/link-interception');
                 } else {
-                  context.go('/onboarding/messenger');
+                  context.push('/onboarding/messenger');
                 }
               },
             ),
@@ -897,8 +964,8 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
           pageBuilder: (context, state) => CustomTransitionPage(
             key: state.pageKey,
             child: LinkInterceptionScreen(
-              onBack: () => context.go('/onboarding/music'),
-              onContinue: () => context.go('/onboarding/messenger'),
+              onBack: () => _onboardingBack(context, '/onboarding/music'),
+              onContinue: () => context.push('/onboarding/messenger'),
             ),
             transitionsBuilder: _slideTransition,
             transitionDuration: const Duration(milliseconds: 350),
@@ -909,14 +976,12 @@ class _UniTuneAppState extends ConsumerState<UniTuneApp> {
           pageBuilder: (context, state) => CustomTransitionPage(
             key: state.pageKey,
             child: MessengerSelector(
-              onBack: () {
-                // Conditional back navigation based on platform
-                if (Platform.isAndroid) {
-                  context.go('/onboarding/link-interception');
-                } else {
-                  context.go('/onboarding/music');
-                }
-              },
+              onBack: () => _onboardingBack(
+                context,
+                Platform.isAndroid
+                    ? '/onboarding/link-interception'
+                    : '/onboarding/music',
+              ),
               onContinue: () {
                 // Mark onboarding complete
                 ref

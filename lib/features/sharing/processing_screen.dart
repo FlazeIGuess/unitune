@@ -71,13 +71,17 @@ class ProcessingScreen extends ConsumerStatefulWidget {
   ConsumerState<ProcessingScreen> createState() => _ProcessingScreenState();
 }
 
-class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
+class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
+    with SingleTickerProviderStateMixin {
   final UnituneRepository _unituneRepo = UnituneRepository();
 
   bool _isLoading = true;
   String _statusMessage = 'Reading music link...';
   UnituneResponse? _response;
   String? _error;
+
+  /// Drives the pulsing logo during the loading state.
+  late final AnimationController _pulseController;
 
   @override
   void initState() {
@@ -86,13 +90,46 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     debugPrint('Incoming link: ${widget.incomingLink}');
     debugPrint('Mode: ${widget.mode}');
     debugPrint('Timestamp: ${DateTime.now().millisecondsSinceEpoch}');
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    )..repeat(reverse: true);
     _processLink();
   }
 
   @override
   void dispose() {
+    _pulseController.dispose();
     _unituneRepo.dispose();
     super.dispose();
+  }
+
+  /// Puts the screen into a recoverable error state.
+  ///
+  /// CRITICAL: [_isLoading] must be cleared alongside [_error] — otherwise
+  /// [build] keeps rendering the loading spinner and the user is stuck on an
+  /// endless "Searching..." screen with no way forward.
+  void _fail(String message) {
+    if (!mounted) return;
+    setState(() {
+      _error = message;
+      _isLoading = false;
+    });
+  }
+
+  /// Re-runs the whole conversion from scratch after a failure.
+  void _retry() {
+    if (!mounted) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _error = null;
+      _response = null;
+      _isLoading = true;
+      _statusMessage = ProcessingMessages.getRandomMessage(
+        ProcessingMessages.analyzing,
+      );
+    });
+    _processLink();
   }
 
   Future<void> _processLink() async {
@@ -203,13 +240,10 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
 
       if (response == null) {
         debugPrint('=== API returned null, showing error ===');
-        if (mounted) {
-          setState(() {
-            _error =
-                'Unable to process this music link. Please check your internet connection and try again.';
-            _isLoading = false;
-          });
-        }
+        _fail(
+          'Unable to process this music link. Please check your internet '
+          'connection and try again.',
+        );
         return;
       }
 
@@ -298,11 +332,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
       }
     } catch (e) {
       debugPrint('=== ProcessingScreen Error: $e ===');
-      if (!mounted) return;
-      setState(() {
-        _error = 'Something went wrong. Please try again.';
-        _isLoading = false;
-      });
+      _fail('Something went wrong. Please try again.');
     }
   }
 
@@ -391,6 +421,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     final response = _response;
     if (response == null) {
       debugPrint('=== _shareToMessenger: response is null, returning ===');
+      _fail('Could not prepare the share link. Please try again.');
       return;
     }
 
@@ -531,6 +562,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     final response = _response;
     if (response == null) {
       debugPrint('=== _openInMusicApp: response is null, returning ===');
+      _fail('Could not resolve this link. Please try again.');
       return;
     }
 
@@ -593,19 +625,14 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
           }
         } else {
           debugPrint('=== Cannot launch URL, showing error ===');
-          if (mounted) {
-            setState(() {
-              _error = 'Cannot open this link. Please install the music app.';
-            });
-          }
+          _fail(
+            'No app on this device can open that link. Pick one of the '
+            'services below instead.',
+          );
         }
       } catch (e) {
         debugPrint('=== ERROR in _openInMusicApp (no preference): $e ===');
-        if (mounted) {
-          setState(() {
-            _error = 'Error opening link: $e';
-          });
-        }
+        _fail('Could not open the link. Please try again.');
       }
       return;
     }
@@ -658,12 +685,10 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
           // App not installed - show error
           final serviceName = musicService.name;
           debugPrint('ERROR: $serviceName not installed');
-          if (mounted) {
-            setState(() {
-              _error =
-                  '$serviceName is not installed. Please install it or change your preferred music service in settings.';
-            });
-          }
+          _fail(
+            '$serviceName does not seem to be installed. Open it on another '
+            'service below, or change your default in Settings.',
+          );
         }
       } else {
         // Service link not found for this song
@@ -671,19 +696,14 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
         debugPrint(
           'ERROR: ${_contentLabel(response)} not available on $serviceName',
         );
-        if (mounted) {
-          setState(() {
-            _error = '${_contentLabel(response)} not available on $serviceName';
-          });
-        }
+        _fail(
+          'This ${_contentLabel(response)} is not available on $serviceName. '
+          'Pick another service below.',
+        );
       }
     } catch (e) {
       debugPrint('=== ERROR in _openInMusicApp (with preference): $e ===');
-      if (mounted) {
-        setState(() {
-          _error = 'Error opening link: $e';
-        });
-      }
+      _fail('Could not open the link. Please try again.');
     }
     debugPrint('=== _openInMusicApp END ===');
   }
@@ -820,13 +840,18 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
                         },
                       ),
                     ),
-                    const Spacer(),
-                    // Content
-                    if (_isLoading)
-                      _buildLoadingState()
-                    else
-                      _buildResultState(),
-                    const Spacer(),
+                    // Content — scrollable so the error state (which can show
+                    // up to six alternative-service buttons) never overflows
+                    // on short screens.
+                    Expanded(
+                      child: Center(
+                        child: SingleChildScrollView(
+                          child: _isLoading
+                              ? _buildLoadingState()
+                              : _buildResultState(),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -854,37 +879,29 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Animated UniTune Logo with pulsing effect
-        TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0.9, end: 1.1),
-          duration: const Duration(milliseconds: 1000),
-          curve: Curves.easeInOut,
-          builder: (context, scale, child) {
-            return Transform.scale(
-              scale: scale,
-              child: Container(
-                width: 140,
-                height: 140,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: context.primaryColor.withValues(alpha: 0.4),
-                      blurRadius: 30,
-                      spreadRadius: 5,
-                    ),
-                  ],
+        // Animated UniTune Logo with a continuous pulsing effect.
+        // Driven by a repeating controller — a TweenAnimationBuilder only
+        // animates when its `end` value changes, so it would pulse once and
+        // then freeze.
+        ScaleTransition(
+          scale: Tween<double>(begin: 0.9, end: 1.1).animate(
+            CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+          ),
+          child: Container(
+            width: 140,
+            height: 140,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: context.primaryColor.withValues(alpha: 0.4),
+                  blurRadius: 30,
+                  spreadRadius: 5,
                 ),
-                child: UniTuneLogo(size: 140, showText: false),
-              ),
-            );
-          },
-          onEnd: () {
-            // Loop the animation
-            if (mounted && _isLoading) {
-              setState(() {});
-            }
-          },
+              ],
+            ),
+            child: const UniTuneLogo(size: 140, showText: false),
+          ),
         ),
         SizedBox(height: AppTheme.spacing.xl),
         Text(
@@ -894,6 +911,17 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
             fontFamily: 'ZalandoSansExpanded',
           ),
           textAlign: TextAlign.center,
+        ),
+        SizedBox(height: AppTheme.spacing.l),
+        // Escape hatch: a slow network should never feel like a frozen app.
+        InlineGlassButton(
+          label: 'Cancel',
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
+          },
+          color: AppTheme.colors.textMuted,
         ),
       ],
     );
@@ -954,11 +982,12 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
             overflow: TextOverflow.ellipsis,
           ),
         SizedBox(height: AppTheme.spacing.xl),
-        // Primary action button
+        // Primary action button.
+        // ref.watch (not read) so the label follows a preference change.
         if (widget.mode == ProcessingMode.share)
           PrimaryButton(
             label:
-                'Share via ${ref.read(preferredMessengerProvider)?.name ?? "Messenger"}',
+                'Share via ${ref.watch(preferredMessengerProvider)?.name ?? "Messenger"}',
             onPressed: () {
               HapticFeedback.mediumImpact();
               _shareToMessenger();
@@ -968,7 +997,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
         else
           PrimaryButton(
             label:
-                'Open in ${ref.read(preferredMusicServiceProvider)?.name ?? "Music App"}',
+                'Open in ${ref.watch(preferredMusicServiceProvider)?.name ?? "Music App"}',
             onPressed: () {
               HapticFeedback.mediumImpact();
               _openInMusicApp();
@@ -1062,7 +1091,15 @@ Music that works for everyone - unitune.art
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
+        // Retry is the primary recovery path: most failures here are a flaky
+        // network or a cold backend, both of which a second attempt fixes.
         PrimaryButton(
+          label: 'Try Again',
+          onPressed: _retry,
+          icon: Icons.refresh,
+        ),
+        const SizedBox(height: 8),
+        InlineGlassButton(
           label: 'Open in Browser',
           onPressed: () => _openInBrowser(widget.incomingLink),
           icon: Icons.open_in_new,

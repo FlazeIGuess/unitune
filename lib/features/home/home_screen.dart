@@ -58,7 +58,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
     _fadeController.forward();
     _linkFocusNode.addListener(_handleLinkFocusChange);
-    _startServiceRotation();
   }
 
   @override
@@ -70,17 +69,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     super.dispose();
   }
 
-  /// Start rotating through random services every 3 seconds
-  void _startServiceRotation() {
-    _serviceRotationTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (mounted) {
+  /// Rotates the "Friend uses ..." placeholder every 3 seconds.
+  ///
+  /// Only runs while there is no real most-received service to show. Left
+  /// running unconditionally it rebuilt the entire Home screen — statistics
+  /// card, charts and all — twenty times a minute for no visible effect.
+  void _syncServiceRotation({required bool needsRotation}) {
+    if (needsRotation) {
+      _serviceRotationTimer ??= Timer.periodic(const Duration(seconds: 3), (_) {
+        if (!mounted) return;
         setState(() {
           _currentRandomServiceIndex = _random.nextInt(
             MusicService.values.length,
           );
         });
-      }
-    });
+      });
+    } else {
+      _serviceRotationTimer?.cancel();
+      _serviceRotationTimer = null;
+    }
   }
 
   @override
@@ -152,8 +159,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   tooltip: 'Show tutorial',
                   onPressed: () {
                     HapticFeedback.mediumImpact();
-                    // Navigate to onboarding welcome screen
-                    context.go('/onboarding/welcome');
+                    // push, not go: replacing the stack left the user trapped
+                    // in the tutorial with no way back to the app.
+                    context.push('/onboarding/welcome');
                   },
                 ),
               ],
@@ -294,6 +302,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             focusNode: _linkFocusNode,
             borderColor: borderColor,
             keyboardType: TextInputType.url,
+            // Confirming from the keyboard is the natural gesture after
+            // pasting a link; previously it did nothing at all.
+            textInputAction: TextInputAction.go,
+            onSubmitted: (_) {
+              if (_isLinkValid) {
+                _handleShareLink();
+              } else {
+                _handleInvalidShareAttempt();
+              }
+            },
+            suffix: hasInput
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 18),
+                    color: AppTheme.colors.textMuted,
+                    tooltip: 'Clear link',
+                    onPressed: _clearLinkInput,
+                  )
+                : null,
             onChanged: (value) {
               if (_isSharingLink) return;
               _updateValidation(value);
@@ -373,6 +399,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     MusicService? preferredService,
     MusicService? mostReceivedService,
   ) {
+    // The placeholder rotation is only needed while we have no real data.
+    // Scheduled after the frame so we never mutate timers during build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _syncServiceRotation(needsRotation: mostReceivedService == null);
+      }
+    });
+
     // Determine which service to show for "Friend uses..."
     final friendService =
         mostReceivedService ?? MusicService.values[_currentRandomServiceIndex];
@@ -562,6 +596,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
+  void _clearLinkInput() {
+    HapticFeedback.selectionClick();
+    _linkController.clear();
+    _lastValidatedText = '';
+    setState(() {
+      _isLinkValid = false;
+      _validationMessage = null;
+      _showPasteHint = false;
+    });
+  }
+
   void _handleInvalidShareAttempt() {
     final input = _linkController.text.trim();
     if (input.isEmpty) {
@@ -605,7 +650,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final target =
         '/process?link=${Uri.encodeComponent(validation.sanitizedUrl)}&mode=share';
     if (mounted) {
+      // Dismiss the keyboard so the processing screen is not pushed behind it.
+      _linkFocusNode.unfocus();
       context.push(target);
+      // Reset the field: leaving a consumed link behind makes it look like
+      // the share never happened when the user returns.
+      _clearLinkInput();
     }
     setState(() => _isSharingLink = false);
   }

@@ -38,6 +38,11 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // Default launcher label. Overridden per build type below so the dev
+        // build is distinguishable in the launcher and the share sheet.
+        manifestPlaceholders["appLabel"] = "UniTune"
+        manifestPlaceholders["admobAppId"] = "ca-app-pub-8547021258440704~3406297771"
     }
 
     signingConfigs {
@@ -52,6 +57,27 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Distinct application id so a debug/test build installs ALONGSIDE
+            // an installed release build instead of trying to replace it.
+            //
+            // Both are debug-signed but with keystores generated per machine
+            // (and per CI runner), so an in-place update would be rejected with
+            // INSTALL_FAILED_UPDATE_INCOMPATIBLE and force an uninstall — which
+            // wipes history, playlists and settings, since all app state lives
+            // in SharedPreferences and there is no export.
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            manifestPlaceholders["appLabel"] = "UniTune Dev"
+
+            // Google's public test app id. The `.dev` application id is not
+            // registered with AdMob, so pointing it at the production app id
+            // would only produce no-fills and risk invalid-traffic flags.
+            // Pair with --dart-define=USE_TEST_ADS=true for the ad units.
+            manifestPlaceholders["admobAppId"] =
+                "ca-app-pub-3940256099942544~3347511713"
+        }
+
         release {
             // Sign with release keystore if key.properties exists, otherwise use debug keys
             signingConfig = if (keystorePropertiesFile.exists()) {

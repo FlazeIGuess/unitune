@@ -24,6 +24,9 @@ class HistoryActionSheet extends StatelessWidget {
   final VoidCallback onShare;
   final VoidCallback onOpen;
 
+  /// Removes this single entry from the history.
+  final VoidCallback onDelete;
+
   const HistoryActionSheet({
     super.key,
     required this.title,
@@ -32,6 +35,7 @@ class HistoryActionSheet extends StatelessWidget {
     this.thumbnailUrl,
     required this.onShare,
     required this.onOpen,
+    required this.onDelete,
   });
 
   static Future<void> show({
@@ -42,6 +46,7 @@ class HistoryActionSheet extends StatelessWidget {
     String? thumbnailUrl,
     required VoidCallback onShare,
     required VoidCallback onOpen,
+    required VoidCallback onDelete,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -54,6 +59,7 @@ class HistoryActionSheet extends StatelessWidget {
         thumbnailUrl: thumbnailUrl,
         onShare: onShare,
         onOpen: onOpen,
+        onDelete: onDelete,
       ),
     );
   }
@@ -109,6 +115,22 @@ class HistoryActionSheet extends StatelessWidget {
                     HapticFeedback.lightImpact();
                     Navigator.of(context).pop();
                     onOpen();
+                  },
+                ),
+                SizedBox(height: AppTheme.spacing.m),
+                // Per-entry delete. Until now the only way to remove anything
+                // was "Clear All", so a single unwanted entry meant losing the
+                // entire history.
+                _buildActionButton(
+                  context: context,
+                  icon: Icons.delete_outline,
+                  label: 'Remove from History',
+                  subtitle: 'Delete this entry only',
+                  color: AppTheme.colors.accentError,
+                  onTap: () {
+                    HapticFeedback.mediumImpact();
+                    Navigator.of(context).pop();
+                    onDelete();
                   },
                 ),
                 SizedBox(height: AppTheme.spacing.m),
