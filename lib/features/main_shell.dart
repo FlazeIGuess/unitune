@@ -75,6 +75,20 @@ class _MainShellState extends ConsumerState<MainShell>
       }
     });
 
+    return PopScope(
+      // Android hardware/gesture back should first return to Home, matching
+      // what every other tabbed app does. Only a back press while already on
+      // Home leaves the app.
+      canPop: currentIndex == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _handleNavigation(0);
+      },
+      child: _buildScaffold(context, currentIndex),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context, int currentIndex) {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(

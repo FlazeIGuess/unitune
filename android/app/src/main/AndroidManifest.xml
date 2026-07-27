@@ -173,5 +173,60 @@
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="https"/>
         </intent>
+
+        <!--
+            Custom-scheme visibility (Android 11+ / API 30).
+            canLaunchUrl() resolves a scheme through the package-visibility
+            filters below. Without an explicit <intent> per scheme the query
+            returns "not installed" even when the app IS present, which made
+            UniTune silently fall back to the system share sheet and skip the
+            user's chosen music app. The SMS handler in particular is not
+            covered by any <package> entry above.
+        -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="spotify"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="music"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="tidal"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="youtubemusic"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="deezer"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="amznmp3"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="whatsapp"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="tg"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="sgnl"/>
+        </intent>
+        <!-- SMS / iMessage handler: no fixed package, scheme query required -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="sms"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO"/>
+            <data android:scheme="smsto"/>
+        </intent>
     </queries>
 </manifest>

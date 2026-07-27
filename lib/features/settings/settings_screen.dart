@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,6 +18,7 @@ import '../../core/widgets/unitune_logo.dart';
 import '../../core/widgets/unitune_header.dart';
 import '../../core/widgets/brand_logo.dart';
 import 'preferences_manager.dart';
+import '../version/version_notifier.dart';
 import '../version/whats_new_sheet.dart';
 
 /// Settings Screen - allows users to change their preferences
@@ -71,7 +73,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                       children: [
                         SizedBox(height: AppTheme.spacing.m),
-                        _SupportButton(),
+                        const _SupportButton(),
                         SizedBox(height: AppTheme.spacing.xl),
 
                         // PROFILE SECTION (Nickname)
@@ -105,7 +107,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         // Requirement 11.6: Display version information
                         _SectionHeader(title: 'About'),
                         SizedBox(height: AppTheme.spacing.s),
-                        _buildAboutSection(context),
+                        const _AboutSection(),
 
                         SizedBox(height: AppTheme.spacing.xl),
 
@@ -233,7 +235,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Configure Link Handling',
+                      'Open by Default',
                       style: AppTheme.typography.bodyLarge.copyWith(
                         color: AppTheme.colors.textPrimary,
                         fontWeight: FontWeight.w500,
@@ -241,7 +243,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'Manage which music links UniTune intercepts',
+                      'Choose which music links UniTune opens instead of the browser',
                       style: AppTheme.typography.bodyMedium.copyWith(
                         color: AppTheme.colors.textMuted,
                         fontSize: 13,
@@ -262,27 +264,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  /// Open Android link settings for this app
-  void _openLinkSettings(BuildContext context) async {
-    try {
-      // Open app settings using app_settings package
-      await AppSettings.openAppSettings();
-    } catch (e) {
-      // Fallback: Show manual instructions
-      if (context.mounted) {
-        _showManualInstructions(context);
-      }
-    }
-  }
-
-  /// Show manual instructions dialog
-  void _showManualInstructions(BuildContext context) {
-    showDialog(
+  /// Explains the steps, then hands the user off to Android settings.
+  ///
+  /// Android exposes no direct intent for the per-app "Open by default"
+  /// screen, so the user has to navigate the last two taps themselves.
+  /// Jumping straight into system settings without saying what to look for
+  /// stranded people on an unfamiliar page — showing the steps first, with
+  /// the jump as the primary action, keeps the instructions on screen right
+  /// up to the moment they are needed.
+  void _openLinkSettings(BuildContext context) {
+    showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: AppTheme.colors.backgroundDeep,
         title: Text(
-          'Configure Link Handling',
+          'Open by Default',
           style: AppTheme.typography.titleMedium.copyWith(
             color: AppTheme.colors.textPrimary,
             fontFamily: 'ZalandoSansExpanded',
@@ -293,27 +289,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Follow these steps to intercept music links:',
+              'To let UniTune open music links instead of the browser:',
               style: AppTheme.typography.bodyMedium.copyWith(
                 color: AppTheme.colors.textSecondary,
               ),
             ),
-            SizedBox(height: 16),
-            _buildSetupStep('1', 'Open Android Settings'),
-            SizedBox(height: 8),
-            _buildSetupStep('2', 'Go to Apps > UniTune'),
-            SizedBox(height: 8),
-            _buildSetupStep('3', 'Tap "Open by default"'),
-            SizedBox(height: 8),
-            _buildSetupStep('4', 'Enable "Open supported links"'),
-            SizedBox(height: 8),
-            _buildSetupStep('5', 'Select music services to intercept'),
+            const SizedBox(height: 16),
+            _buildSetupStep('1', 'Tap "Open Settings" below'),
+            const SizedBox(height: 8),
+            _buildSetupStep('2', 'Choose "Open by default"'),
+            const SizedBox(height: 8),
+            _buildSetupStep('3', 'Enable "Open supported links"'),
+            const SizedBox(height: 8),
+            _buildSetupStep('4', 'Pick the music services to intercept'),
           ],
         ),
         actions: [
           InlineGlassButton(
-            label: 'Got it',
-            onPressed: () => Navigator.of(context).pop(),
+            label: 'Cancel',
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            color: AppTheme.colors.textMuted,
+          ),
+          InlineGlassButton(
+            label: 'Open Settings',
+            icon: Icons.open_in_new,
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              try {
+                await AppSettings.openAppSettings();
+              } catch (e) {
+                debugPrint('Could not open app settings: $e');
+              }
+            },
           ),
         ],
       ),
@@ -358,13 +365,70 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   /// Build Profile section with nickname input
   Widget _buildProfileSection(BuildContext context, WidgetRef ref) {
-    final prefsManager = ref.watch(preferencesManagerProvider);
-    final currentNickname = prefsManager.userNickname ?? '';
-    final textController = TextEditingController(text: currentNickname)
-      ..selection = TextSelection.fromPosition(
-        TextPosition(offset: currentNickname.length),
-      );
+    return const _NicknameField();
+  }
+}
 
+/// Nickname editor with a properly owned [TextEditingController].
+///
+/// Previously the controller was constructed inside `build`, which leaked a
+/// controller on every rebuild and reset the caret to the end mid-typing
+/// whenever an unrelated provider changed.
+class _NicknameField extends ConsumerStatefulWidget {
+  const _NicknameField();
+
+  @override
+  ConsumerState<_NicknameField> createState() => _NicknameFieldState();
+}
+
+class _NicknameFieldState extends ConsumerState<_NicknameField> {
+  late final TextEditingController _controller;
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: ref.read(preferencesManagerProvider).userNickname ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// Persists after a short pause instead of on every keystroke — writing to
+  /// SharedPreferences per character is needless disk churn.
+  void _onChanged(String value) {
+    setState(() {}); // refresh the clear button
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () => _save(value));
+  }
+
+  Future<void> _save(String value) async {
+    final trimmed = value.trim();
+    await ref.read(preferencesManagerProvider).setUserNickname(trimmed);
+    if (!mounted) return;
+    ref.read(userNicknameProvider.notifier).state = trimmed.isEmpty
+        ? null
+        : trimmed;
+  }
+
+  Future<void> _clear() async {
+    HapticFeedback.lightImpact();
+    _debounce?.cancel();
+    _controller.clear();
+    await ref.read(preferencesManagerProvider).setUserNickname(null);
+    if (!mounted) return;
+    ref.read(userNicknameProvider.notifier).state = null;
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return LiquidGlassCard(
       padding: EdgeInsets.all(AppTheme.spacing.m),
       child: Column(
@@ -387,10 +451,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
           ),
           SizedBox(height: AppTheme.spacing.m),
-          StatefulBuilder(
-            builder: (context, setState) {
+          Builder(
+            builder: (context) {
+              final textController = _controller;
               return TextField(
                 controller: textController,
+                textInputAction: TextInputAction.done,
+                onSubmitted: _save,
                 decoration: InputDecoration(
                   hintText: 'e.g., MusicLover',
                   hintStyle: AppTheme.typography.bodyMedium.copyWith(
@@ -436,14 +503,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             color: AppTheme.colors.textMuted,
                             size: 20,
                           ),
-                          onPressed: () async {
-                            HapticFeedback.lightImpact();
-                            textController.clear();
-                            await prefsManager.setUserNickname(null);
-                            ref.read(userNicknameProvider.notifier).state =
-                                null;
-                            setState(() {});
-                          },
+                          onPressed: _clear,
                           tooltip: 'Clear nickname',
                         )
                       : null,
@@ -452,12 +512,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   color: AppTheme.colors.textPrimary,
                 ),
                 maxLength: 20,
-                onChanged: (value) async {
-                  await prefsManager.setUserNickname(value.trim());
-                  ref.read(userNicknameProvider.notifier).state =
-                      value.trim().isEmpty ? null : value.trim();
-                  setState(() {});
-                },
+                onChanged: _onChanged,
               );
             },
           ),
@@ -465,11 +520,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
   }
+}
 
-  /// Show info dialog explaining music link interception
-  /// Requirement 11.6: Display version information in About section
-  /// Requirement 17.1: Ensure all text is in English
-  Widget _buildAboutSection(BuildContext context) {
+/// About section: app identity, version and the legal/support entry points.
+///
+/// Requirement 11.6: Display version information in About section
+/// Requirement 17.1: Ensure all text is in English
+class _AboutSection extends ConsumerWidget {
+  const _AboutSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Read the version from the package metadata instead of hardcoding it —
+    // the literal here went stale on every release and misreported the
+    // installed build to users and bug reports alike.
+    final versionLabel = ref
+        .watch(versionNotifierProvider)
+        .maybeWhen(
+          data: (state) =>
+              'Version ${state.localVersion} (${state.localBuild})',
+          orElse: () => 'Version …',
+        );
+
     return Column(
       children: [
         LiquidGlassCard(
@@ -479,7 +551,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             children: [
               Row(
                 children: [
-                  UniTuneLogo(size: 48, showText: false),
+                  const UniTuneLogo(size: 48, showText: false),
                   SizedBox(width: AppTheme.spacing.m),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -492,7 +564,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                       Text(
-                        'Version 1.5.1',
+                        versionLabel,
                         style: AppTheme.typography.bodyMedium.copyWith(
                           color: AppTheme.colors.textSecondary,
                         ),
@@ -512,13 +584,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
         SizedBox(height: AppTheme.spacing.m),
-        _ChangelogButton(),
+        const _ChangelogButton(),
         SizedBox(height: AppTheme.spacing.m),
-        _ReportBugButton(),
+        const _ReportBugButton(),
         SizedBox(height: AppTheme.spacing.m),
-        _PrivacyPolicyButton(),
+        const _PrivacyPolicyButton(),
         SizedBox(height: AppTheme.spacing.m),
-        _ManageConsentButton(),
+        const _ManageConsentButton(),
       ],
     );
   }
@@ -856,7 +928,20 @@ class _ManageConsentButton extends StatelessWidget {
       child: InkWell(
         onTap: () async {
           HapticFeedback.lightImpact();
-          await ConsentHelper.showPrivacyOptionsForm();
+          final shown = await ConsentHelper.showPrivacyOptionsForm();
+          // Outside the EEA/UK there is no form to show. Without feedback the
+          // button just looks broken.
+          if (!shown && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text(
+                  'No ad consent options are available in your region.',
+                ),
+                backgroundColor: AppTheme.colors.backgroundCard,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
         },
         child: Padding(
           padding: EdgeInsets.all(AppTheme.spacing.m),
@@ -977,7 +1062,10 @@ class _SupportButtonState extends ConsumerState<_SupportButton> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Help us keep UniTune free and ad-free for everyone',
+              // The app is ad-supported, so promising "ad-free" here is simply
+              // untrue and undermines trust in the rest of the screen.
+              'UniTune is free. Your support covers the servers that convert '
+              'every link.',
               style: AppTheme.typography.bodyMedium.copyWith(
                 color: AppTheme.colors.textSecondary,
               ),

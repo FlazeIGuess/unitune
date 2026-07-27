@@ -176,9 +176,13 @@ class _PlaylistsListScreenState extends ConsumerState<PlaylistsListScreen> {
               ),
             ),
             SizedBox(height: AppTheme.spacing.m),
-            _buildInfoItem(Icons.music_note, 'Any number of tracks'),
+            _buildInfoItem(Icons.music_note, 'Mix songs from any service'),
             _buildInfoItem(Icons.share, 'Share with a single link'),
             _buildInfoItem(Icons.qr_code, 'Generate QR codes'),
+            _buildInfoItem(
+              Icons.headphones,
+              'Everyone plays each song on their own service',
+            ),
           ],
         ),
         actions: [
@@ -247,47 +251,69 @@ class _PlaylistsTab extends ConsumerWidget {
       ),
       data: (playlists) {
         if (playlists.isEmpty) {
-          return _PlaylistsEmptyState(
-            icon: emptyIcon,
-            title: emptyTitle,
-            subtitle: emptySubtitle,
-            showCreateButton: showCreateButton,
-            onCreatePlaylist: onCreatePlaylist,
+          // Wrapped in a RefreshIndicator + scrollable so the empty state can
+          // also be pulled to refresh — otherwise a playlist imported in the
+          // background never shows up without leaving the tab.
+          return RefreshIndicator(
+            onRefresh: () async => ref.invalidate(provider),
+            color: context.primaryColor,
+            backgroundColor: AppTheme.colors.backgroundCard,
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: _PlaylistsEmptyState(
+                    icon: emptyIcon,
+                    title: emptyTitle,
+                    subtitle: emptySubtitle,
+                    showCreateButton: showCreateButton,
+                    onCreatePlaylist: onCreatePlaylist,
+                  ),
+                ),
+              ),
+            ),
           );
         }
 
         final extraCount = showCreateButton ? 1 : 0;
-        return ListView.builder(
-          padding: EdgeInsets.all(AppTheme.spacing.l),
-          itemCount: playlists.length + extraCount,
-          itemBuilder: (context, index) {
-            if (showCreateButton && index == playlists.length) {
-              return Column(
-                children: [
-                  SizedBox(height: AppTheme.spacing.l),
-                  PrimaryButton(
-                    label: 'Create New Playlist',
-                    onPressed: onCreatePlaylist,
-                    icon: Icons.add,
-                  ),
-                  SizedBox(height: 100),
-                ],
-              );
-            }
+        return RefreshIndicator(
+          onRefresh: () async => ref.invalidate(provider),
+          color: context.primaryColor,
+          backgroundColor: AppTheme.colors.backgroundCard,
+          child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.all(AppTheme.spacing.l),
+            itemCount: playlists.length + extraCount,
+            itemBuilder: (context, index) {
+              if (showCreateButton && index == playlists.length) {
+                return Column(
+                  children: [
+                    SizedBox(height: AppTheme.spacing.l),
+                    PrimaryButton(
+                      label: 'Create New Playlist',
+                      onPressed: onCreatePlaylist,
+                      icon: Icons.add,
+                    ),
+                    SizedBox(height: 100),
+                  ],
+                );
+              }
 
-            final playlist = playlists[index];
-            return Padding(
-              padding: EdgeInsets.only(bottom: AppTheme.spacing.l),
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => onOpenPlaylist(playlist),
-                child: PlaylistPreviewCard(
-                  title: playlist.title,
-                  tracks: playlist.tracks,
+              final playlist = playlists[index];
+              return Padding(
+                padding: EdgeInsets.only(bottom: AppTheme.spacing.l),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onOpenPlaylist(playlist),
+                  child: PlaylistPreviewCard(
+                    title: playlist.title,
+                    tracks: playlist.tracks,
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         );
       },
     );

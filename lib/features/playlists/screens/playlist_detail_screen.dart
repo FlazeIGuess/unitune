@@ -13,6 +13,7 @@ import '../../../data/models/mini_playlist.dart';
 import '../../../data/models/playlist_track.dart';
 import '../../../data/repositories/playlist_repository.dart';
 import '../../../data/repositories/playlist_remote_repository.dart';
+import '../../../data/repositories/unitune_repository.dart';
 import '../../main_shell.dart';
 import '../../settings/preferences_manager.dart';
 import '../services/playlist_share_service.dart';
@@ -28,7 +29,22 @@ class PlaylistDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
+  final UnituneRepository _unituneRepo = UnituneRepository();
   bool _syncStarted = false;
+
+  /// Id of the track whose platform links are currently being resolved.
+  /// Doubles as a re-entrancy guard so a double tap cannot fire two
+  /// conversions for the same playlist.
+  String? _resolvingTrackId;
+
+  /// True while the share link is being published to the backend.
+  bool _isSharing = false;
+
+  @override
+  void dispose() {
+    _unituneRepo.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -357,7 +373,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
           delegate: SliverChildBuilderDelegate((context, index) {
             final track = playlist.tracks[index];
             final isLast = index == playlist.tracks.length - 1;
-            return _buildTrackTile(context, track, index, isLast);
+            return _buildTrackTile(context, playlist, track, index, isLast);
           }, childCount: playlist.tracks.length),
         ),
       ),
@@ -378,10 +394,12 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
 
   Widget _buildTrackTile(
     BuildContext context,
+    MiniPlaylist playlist,
     PlaylistTrack track,
     int index,
     bool isLast,
   ) {
+    final isResolving = _resolvingTrackId == track.id;
     return Container(
       margin: EdgeInsets.only(bottom: isLast ? 0 : AppTheme.spacing.s),
       decoration: BoxDecoration(
@@ -392,7 +410,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => _openTrack(context, track),
+          onTap: () => _openTrack(context, playlist, track),
           borderRadius: BorderRadius.circular(AppTheme.radii.large),
           splashColor: context.primaryColor.withValues(alpha: 0.12),
           highlightColor: context.primaryColor.withValues(alpha: 0.08),
@@ -453,11 +471,21 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.play_arrow,
-                  size: 20,
-                  color: AppTheme.colors.textMuted,
-                ),
+                if (isResolving)
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: context.primaryColor,
+                    ),
+                  )
+                else
+                  Icon(
+                    Icons.play_arrow,
+                    size: 20,
+                    color: AppTheme.colors.textMuted,
+                  ),
               ],
             ),
           ),
@@ -475,13 +503,20 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildShareIconButton(
+          _buildShareAction(
+            context: context,
             icon: Icons.share,
-            onTap: () => _sharePlaylist(context, ref, playlist),
+            label: 'Share',
+            onTap: _isSharing
+                ? null
+                : () => _sharePlaylist(context, ref, playlist),
+            busy: _isSharing,
           ),
           SizedBox(width: AppTheme.spacing.m),
-          _buildShareIconButton(
+          _buildShareAction(
+            context: context,
             icon: Icons.qr_code,
+            label: 'QR Code',
             onTap: () => _generateQRCode(context, playlist),
           ),
         ],
@@ -489,42 +524,120 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
     );
   }
 
-  Widget _buildShareIconButton({
+  /// Labelled pill action with a >=48dp touch target.
+  ///
+  /// The previous 24x24 icon-only buttons were both below the platform
+  /// minimum tap size and gave no hint about what they did.
+  Widget _buildShareAction({
+    required BuildContext context,
     required IconData icon,
-    required VoidCallback onTap,
+    required String label,
+    required VoidCallback? onTap,
+    bool busy = false,
   }) {
-    return SizedBox(
-      width: 24,
-      height: 24,
-      child: IconButton(
-        onPressed: onTap,
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints.tightFor(width: 24, height: 24),
-        iconSize: 18,
-        color: AppTheme.colors.textSecondary,
-        splashRadius: 20,
-        icon: Icon(icon),
+    return Semantics(
+      button: true,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radii.pill),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: EdgeInsets.symmetric(
+            horizontal: AppTheme.spacing.l,
+            vertical: AppTheme.spacing.s,
+          ),
+          decoration: BoxDecoration(
+            color: AppTheme.colors.glassBase,
+            borderRadius: BorderRadius.circular(AppTheme.radii.pill),
+            border: Border.all(color: AppTheme.colors.glassBorder, width: 1),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (busy)
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: context.primaryColor,
+                  ),
+                )
+              else
+                Icon(icon, size: 18, color: AppTheme.colors.textSecondary),
+              SizedBox(width: AppTheme.spacing.s),
+              Text(
+                label,
+                style: AppTheme.typography.labelLarge.copyWith(
+                  color: AppTheme.colors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  Future<void> _openTrack(BuildContext context, PlaylistTrack track) async {
+  Future<void> _openTrack(
+    BuildContext context,
+    MiniPlaylist playlist,
+    PlaylistTrack track,
+  ) async {
+    if (_resolvingTrackId != null) return;
     HapticFeedback.lightImpact();
     final musicService = ref.read(preferredMusicServiceProvider);
-    final targetUrl = _resolveTrackUrl(track, musicService);
-    final urlToOpen = targetUrl ?? track.originalUrl;
+    var targetUrl = _resolveTrackUrl(track, musicService);
     debugPrint(
       'PlaylistDetail.openTrack id=${track.id} service=${musicService?.name ?? "none"}',
     );
+
+    // Playlists received from a friend arrive with the creator's original URLs
+    // only — the backend does not store per-platform links. Resolve them on
+    // demand so the track actually opens in *this* user's music app, which is
+    // the entire point of a cross-platform playlist. The result is written
+    // back to storage so each track is converted at most once.
+    if (musicService != null &&
+        targetUrl == null &&
+        track.convertedLinks.isEmpty) {
+      setState(() => _resolvingTrackId = track.id);
+      try {
+        final response = await _unituneRepo.getLinks(track.originalUrl);
+        if (response != null && response.linksByPlatform.isNotEmpty) {
+          final links = <String, String>{};
+          response.linksByPlatform.forEach((key, value) {
+            links[key] = value.url;
+          });
+          final updated = track.copyWith(convertedLinks: links);
+          final tracks = playlist.tracks
+              .map((t) => t.id == track.id ? updated : t)
+              .toList();
+          await ref
+              .read(playlistRepositoryProvider)
+              .updateReceivedPlaylistTracks(playlist.id, tracks);
+          if (mounted) ref.invalidate(receivedPlaylistsProvider);
+          targetUrl = _resolveTrackUrl(updated, musicService);
+        }
+      } catch (e) {
+        debugPrint('PlaylistDetail.openTrack convert failed: $e');
+      } finally {
+        if (mounted) setState(() => _resolvingTrackId = null);
+      }
+    }
+
+    final urlToOpen = targetUrl ?? track.originalUrl;
 
     if (musicService != null && targetUrl == null) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Song not available on ${musicService.name}'),
+            content: Text(
+              'Not available on ${musicService.name} — opening the original link',
+            ),
             backgroundColor: AppTheme.colors.backgroundCard,
             behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 1),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -601,14 +714,22 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
     final shareService = ref.read(playlistShareServiceProvider);
     final repo = ref.read(playlistRepositoryProvider);
 
+    // Publishing the playlist is a network round trip; without a busy state
+    // the button looks dead and invites repeated taps.
+    setState(() => _isSharing = true);
     final shareLink = await shareService.resolveShareLink(ref, playlist);
+    if (mounted) setState(() => _isSharing = false);
+
     if (shareLink == null) {
       debugPrint('PlaylistDetail.share failed id=${playlist.id}');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Failed to create share link'),
+            content: const Text(
+              'Could not publish this playlist. Check your connection and try again.',
+            ),
             backgroundColor: AppTheme.colors.accentError,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
@@ -682,8 +803,15 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
       ref.invalidate(playlistsProvider);
       ref.invalidate(receivedPlaylistsProvider);
       if (context.mounted) {
-        ref.read(mainShellIndexProvider.notifier).state = 2;
-        context.go('/home');
+        // Prefer popping back to wherever the user came from. Only fall back
+        // to a stack-resetting `go` when this screen was opened from a deep
+        // link and there is nothing underneath it.
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          ref.read(mainShellIndexProvider.notifier).state = 2;
+          context.go('/home');
+        }
       }
     }
   }

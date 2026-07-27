@@ -44,6 +44,18 @@ class GlassInputField extends StatefulWidget {
   /// Whether to obscure text (for passwords)
   final bool obscureText;
 
+  /// Called when the user confirms the field from the soft keyboard.
+  final ValueChanged<String>? onSubmitted;
+
+  /// Keyboard action button. Defaults to "done" for single-line fields.
+  final TextInputAction? textInputAction;
+
+  /// Optional trailing widget rendered inside the field, e.g. a clear button.
+  final Widget? suffix;
+
+  /// Hard character limit enforced by the input itself.
+  final int? maxLength;
+
   const GlassInputField({
     super.key,
     this.label,
@@ -56,6 +68,10 @@ class GlassInputField extends StatefulWidget {
     this.enabled = true,
     this.keyboardType = TextInputType.text,
     this.obscureText = false,
+    this.onSubmitted,
+    this.textInputAction,
+    this.suffix,
+    this.maxLength,
   });
 
   @override
@@ -131,8 +147,13 @@ class _GlassInputFieldState extends State<GlassInputField> {
                 controller: widget.controller,
                 focusNode: _focusNode,
                 onChanged: widget.onChanged,
+                onSubmitted: widget.onSubmitted,
+                textInputAction:
+                    widget.textInputAction ??
+                    (widget.maxLines == 1 ? TextInputAction.done : null),
                 enabled: widget.enabled,
                 maxLines: widget.maxLines,
+                maxLength: widget.maxLength,
                 keyboardType: widget.keyboardType,
                 obscureText: widget.obscureText,
                 style: AppTheme.typography.bodyLarge.copyWith(
@@ -146,6 +167,12 @@ class _GlassInputFieldState extends State<GlassInputField> {
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
                   isDense: true,
+                  counterText: '',
+                  suffixIcon: widget.suffix,
+                  suffixIconConstraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
                 ),
               ),
             ),

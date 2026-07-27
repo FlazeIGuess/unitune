@@ -320,6 +320,43 @@ class PlaylistRepository {
     return entry?['deleteToken'] as String?;
   }
 
+  /// Reverse lookup: finds the local playlist id previously imported for
+  /// [remoteId], or null if this remote playlist has never been imported.
+  ///
+  /// Used so that re-opening the same share link twice reopens the existing
+  /// playlist instead of creating a duplicate copy in "Got".
+  Future<String?> findLocalIdForRemote(String remoteId) async {
+    final map = await _getRemoteMap();
+    for (final entry in map.entries) {
+      final value = entry.value;
+      if (value is Map<String, dynamic> && value['remoteId'] == remoteId) {
+        return entry.key;
+      }
+    }
+    return null;
+  }
+
+  /// Replaces the stored tracks of a received playlist.
+  ///
+  /// Used to persist converted platform links that were resolved lazily when
+  /// the user first opened a track, so the conversion only happens once.
+  Future<void> updateReceivedPlaylistTracks(
+    String playlistId,
+    List<PlaylistTrack> tracks,
+  ) async {
+    final history = await getReceivedHistory();
+    final index = history.indexWhere((p) => p.id == playlistId);
+    if (index < 0) return;
+    history[index] = history[index].copyWith(
+      tracks: tracks,
+      lastModified: DateTime.now(),
+    );
+    await _saveReceivedHistory(history);
+    debugPrint(
+      'PlaylistRepository.updateReceivedPlaylistTracks id=$playlistId tracks=${tracks.length}',
+    );
+  }
+
   Future<void> saveRemotePlaylistMapping(
     String localId,
     String remoteId,

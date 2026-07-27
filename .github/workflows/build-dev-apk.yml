@@ -1,0 +1,48 @@
+name: Build Dev APK
+
+# On-demand debug build for testing branches on a real device.
+# Debug signing means no keystore secrets are required, so this works on
+# any branch, including forks.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.6'
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Analyze code
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build debug APK
+        run: flutter build apk --debug --dart-define=DISTRIBUTION_CHANNEL=github
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: unitune-dev-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 14

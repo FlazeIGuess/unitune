@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 /// Encodes music links into UniTune's new Base64 format
 ///
 /// New format: https://unitune.art/s/{base64}
@@ -56,14 +58,14 @@ class UniTuneLinkEncoder {
     String baseUrl = _baseUrl,
     String? nickname,
   }) {
-    print('=== UniTuneLinkEncoder.createShareLinkFromUrl ===');
-    print('Input URL: $musicUrl');
-    print('Nickname: ${nickname ?? "none"}');
+    debugPrint('=== UniTuneLinkEncoder.createShareLinkFromUrl ===');
+    debugPrint('Input URL: $musicUrl');
+    debugPrint('Nickname: ${nickname ?? "none"}');
 
     final parsed = _parseMusicUrl(musicUrl);
 
     if (parsed != null) {
-      print(
+      debugPrint(
         '✅ Parsed successfully: ${parsed.platform}:${parsed.type}:${parsed.trackId}',
       );
       final link = createShareLink(
@@ -73,12 +75,12 @@ class UniTuneLinkEncoder {
         baseUrl: baseUrl,
         nickname: nickname,
       );
-      print('Generated Base64 link: $link');
+      debugPrint('Generated Base64 link: $link');
       return link;
     }
 
     // Parse failed - throw error
-    print('❌ Parsing failed - URL not supported');
+    debugPrint('❌ Parsing failed - URL not supported');
     throw UnsupportedError(
       'Could not parse music URL. Platform might not be supported or URL format is invalid: $musicUrl',
     );
@@ -128,7 +130,7 @@ class UniTuneLinkEncoder {
       // Invalid format
       return (null, null);
     } catch (e) {
-      print('❌ Failed to decode share link: $e');
+      debugPrint('❌ Failed to decode share link: $e');
       return (null, null);
     }
   }
@@ -173,12 +175,12 @@ class UniTuneLinkEncoder {
 
   /// Parses a music URL to extract platform, type, and ID
   static _MusicUrlParts? _parseMusicUrl(String url) {
-    print('  Parsing URL: $url');
+    debugPrint('  Parsing URL: $url');
     try {
       final uri = Uri.parse(url);
       final host = uri.host.toLowerCase();
       final path = uri.path;
-      print('  Host: $host, Path: $path');
+      debugPrint('  Host: $host, Path: $path');
 
       // Spotify: https://open.spotify.com/track/3n3Ppam7vgaVa1iaRUc9Lp
       if (host.contains('spotify.com')) {
@@ -194,12 +196,12 @@ class UniTuneLinkEncoder {
 
       // Apple Music
       if (host.contains('music.apple.com')) {
-        print('  Detected Apple Music URL');
+        debugPrint('  Detected Apple Music URL');
 
         // Try query parameter first (album link with track ID)
         final trackId = uri.queryParameters['i'];
         if (trackId != null) {
-          print('  ✅ Apple Music match (query param): id=$trackId');
+          debugPrint('  ✅ Apple Music match (query param): id=$trackId');
           return _MusicUrlParts(
             platform: 'appleMusic',
             type: 'song',
@@ -210,7 +212,7 @@ class UniTuneLinkEncoder {
         // Try path-based ID (direct song link)
         final match = RegExp(r'/song/[^/]+/(\d+)').firstMatch(path);
         if (match != null) {
-          print('  ✅ Apple Music match (path): id=${match.group(1)}');
+          debugPrint('  ✅ Apple Music match (path): id=${match.group(1)}');
           return _MusicUrlParts(
             platform: 'appleMusic',
             type: 'song',
@@ -220,7 +222,7 @@ class UniTuneLinkEncoder {
 
         final albumMatch = RegExp(r'/album/[^/]+/(\d+)').firstMatch(path);
         if (albumMatch != null) {
-          print('  ✅ Apple Music album match: id=${albumMatch.group(1)}');
+          debugPrint('  ✅ Apple Music album match: id=${albumMatch.group(1)}');
           return _MusicUrlParts(
             platform: 'appleMusic',
             type: 'album',
@@ -230,7 +232,9 @@ class UniTuneLinkEncoder {
 
         final artistMatch = RegExp(r'/artist/[^/]+/(\d+)').firstMatch(path);
         if (artistMatch != null) {
-          print('  ✅ Apple Music artist match: id=${artistMatch.group(1)}');
+          debugPrint(
+            '  ✅ Apple Music artist match: id=${artistMatch.group(1)}',
+          );
           return _MusicUrlParts(
             platform: 'appleMusic',
             type: 'artist',
@@ -238,18 +242,18 @@ class UniTuneLinkEncoder {
           );
         }
 
-        print('  ❌ Apple Music regex did not match');
+        debugPrint('  ❌ Apple Music regex did not match');
       }
 
       // Tidal: https://tidal.com/browse/track/258735410
       // or: https://listen.tidal.com/track/258735410
       // or: https://tidal.com/track/258735410/u (from share intent)
       if (host.contains('tidal.com')) {
-        print('  Detected Tidal URL');
+        debugPrint('  Detected Tidal URL');
         // Try to match: /track/123 or /browse/track/123 or /track/123/u
         final match = RegExp(r'/(?:browse/)?(\w+)/(\d+)').firstMatch(path);
         if (match != null) {
-          print(
+          debugPrint(
             '  ✅ Tidal match: type=${match.group(1)}, id=${match.group(2)}',
           );
           return _MusicUrlParts(
@@ -258,7 +262,7 @@ class UniTuneLinkEncoder {
             trackId: match.group(2)!,
           );
         } else {
-          print('  ❌ Tidal regex did not match');
+          debugPrint('  ❌ Tidal regex did not match');
         }
       }
 
@@ -348,7 +352,7 @@ class UniTuneLinkEncoder {
 
       return null;
     } catch (e) {
-      print('  ❌ Exception while parsing: $e');
+      debugPrint('  ❌ Exception while parsing: $e');
       return null;
     }
   }
