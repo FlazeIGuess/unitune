@@ -5,8 +5,18 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 /// Manages ad unit IDs for different platforms and environments
 class AdHelper {
   static const bool adsEnabled = true;
-  // Test mode - using Google's test ad units for development
-  static const bool _useTesting = false;
+
+  /// Use Google's official test ad units instead of the production ones.
+  ///
+  /// Enabled via `--dart-define=USE_TEST_ADS=true` for dev builds, which run
+  /// under a separate application id (`.dev`). That id is not registered with
+  /// AdMob, so production requests from it would never fill and would risk
+  /// being counted as invalid traffic against the real account. Test units
+  /// always fill, so ad layouts stay testable.
+  static const bool _useTesting = bool.fromEnvironment(
+    'USE_TEST_ADS',
+    defaultValue: false,
+  );
 
   /// Default AdRequest for all ad placements.
   /// Always non-personalized: no GAID, no behavioral profiling.

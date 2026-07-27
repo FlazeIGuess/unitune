@@ -1,6 +1,13 @@
 name: Build Dev APK
 
 # On-demand debug build for testing branches on a real device.
+#
+# The debug build type carries applicationIdSuffix ".dev", so the resulting
+# APK installs ALONGSIDE an installed release build instead of replacing it.
+# That matters because both are debug-signed with per-runner keystores: an
+# in-place update would be rejected and force an uninstall, wiping the user's
+# history, playlists and settings.
+#
 # Debug signing means no keystore secrets are required, so this works on
 # any branch, including forks.
 
@@ -38,7 +45,15 @@ jobs:
         run: flutter test
 
       - name: Build debug APK
-        run: flutter build apk --debug --dart-define=DISTRIBUTION_CHANNEL=github
+        run: |
+          flutter build apk --debug \
+            --dart-define=DISTRIBUTION_CHANNEL=github \
+            --dart-define=USE_TEST_ADS=true
+
+      - name: Report signer certificate
+        # Printed so the APK's signing identity can be compared against a
+        # previously installed build without downloading anything first.
+        run: keytool -printcert -jarfile build/app/outputs/flutter-apk/app-debug.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

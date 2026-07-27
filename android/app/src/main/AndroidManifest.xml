@@ -5,8 +5,14 @@
     <!-- AD_ID permission intentionally omitted: UniTune uses non-personalized ads only.
          No Advertising ID (GAID) is collected or transmitted. GDPR/privacy compliant. -->
     
+    <!--
+        appLabel is supplied by build.gradle.kts: "UniTune" for release,
+        "UniTune Dev" for debug. The dev build uses a separate application id,
+        so both can be installed at once — the label is what tells them apart
+        in the launcher, the share sheet and the link chooser.
+    -->
     <application
-        android:label="UniTune"
+        android:label="${appLabel}"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -145,10 +151,14 @@
             android:name="flutterEmbedding"
             android:value="2" />
         
-        <!-- Google AdMob App ID -->
+        <!--
+            Google AdMob App ID. The debug build uses Google's public test app
+            id (see build.gradle.kts) because its `.dev` application id is not
+            registered with AdMob.
+        -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-8547021258440704~3406297771"/>
+            android:value="${admobAppId}"/>
     </application>
     
     <!-- Query for package visibility (check installed apps) -->
